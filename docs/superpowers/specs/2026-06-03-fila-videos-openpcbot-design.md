@@ -37,6 +37,19 @@ concorrência = 1** (o scheduler atual roda os jobs em sequência sem trava expl
 - Usuário único (Nei). Sem proteção contra chamada direta das skills (ver Backlog v2).
 - Sem retry automático. Sem prioridade.
 
+### Por que 1 por vez (gargalo é CPU, não GPU)
+
+O render já foi otimizado pra usar a **GPU** (NVENC no encode + Chrome com `--browser-gpu`
+na rasterização; TTS já era CUDA), com fallback automático pro CPU. Mas o gargalo real
+continua sendo **CPU**: a captura de frames do Chrome orquestra vários workers em CPU, e
+as sessões paralelas do usuário saturam os ~20 núcleos. Logo, **serializar os jobs (1 por
+vez) ataca o gargalo de frente** — libera CPU. A GPU é o acelerador que faz cada job sair
+mais rápido, não substitui a fila. Por isso concorrência = 1 mesmo com a GPU ociosa.
+
+O worker deve instruir o agente a renderizar na GPU (`--gpu --browser-gpu`, com `timeout`
+e fallback pro CPU se o arquivo sair vazio) — senão o render headless cairia em x264/CPU.
+Referência da lógica já comprovada: `videos-explicativos/fep-videos/render-modulo.sh`.
+
 ## Arquitetura
 
 ### Componentes novos (dentro do openpcbot)
@@ -178,10 +191,14 @@ flags `--x` viram `opts`/`notify`/`send_video`.
 
 ## Fora de escopo (Backlog v2)
 
+- **Wrapper de render compartilhado (`render-gpu.sh`):** generalizar a lógica
+  GPU-first/CPU-fallback do `render-modulo.sh` num único script que as 3 skills chamam.
+  Esse wrapper é o lugar natural pra hospedar **também** a trava global abaixo — as duas
+  coisas vivem no mesmo chokepoint (o passo de render), então consolida o v2 num ponto só.
 - **Trava global de render (lock de 1 vaga):** serializar o passo de render mesmo em
-  chamadas diretas das skills / outras pessoas / outras máquinas. Implementação: um
-  wrapper de lock no comando de render dentro das 3 SKILL.md, apontando pra um semáforo
-  (lockfile ou mini-endpoint no openpcbot). Garante o limite físico independente da fila.
+  chamadas diretas das skills / outras pessoas / outras máquinas. Implementação: o
+  `render-gpu.sh` acima pega um semáforo (lockfile ou mini-endpoint no openpcbot) antes de
+  renderizar. Garante o limite físico independente da fila.
 - **Prioridade / job urgente** que fura a fila.
 - **Retry automático** em falha.
 - Concorrência configurável (> 1).

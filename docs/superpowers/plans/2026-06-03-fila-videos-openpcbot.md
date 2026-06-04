@@ -284,6 +284,12 @@ describe('buildVideoPrompt', () => {
     expect(p).toContain('sem pedir confirmação');
   });
 
+  it('instructs GPU render with CPU fallback', () => {
+    const p = buildVideoPrompt({ skill: 'explicativo', input: 'X', vertical: false });
+    expect(p).toContain('--browser-gpu');
+    expect(p).toContain('fallback');
+  });
+
   it('asks for 9:16 when vertical', () => {
     expect(buildVideoPrompt({ skill: 'explicativo', input: 'X', vertical: true })).toContain('9:16');
   });
@@ -361,6 +367,8 @@ export function buildVideoPrompt(job: { skill: VideoJob['skill']; input: string;
     `Use a skill \`${slug}\` para criar um vídeo a partir de: "${job.input}".`,
     formato,
     'Rode o fluxo COMPLETO de ponta a ponta de forma AUTÔNOMA, sem pedir confirmação de frames nem qualquer interação — assuma os defaults do usuário (PT-BR, dark premium âmbar, CTA INEMA.CLUB).',
+    // Empurra encode+rasterização pra GPU (NVENC + Chrome GPU) — a CPU está saturada pelas sessões paralelas; a captura de frames já consome CPU suficiente.
+    'No RENDER FINAL use a GPU: `npx hyperframes render --quality high --gpu --browser-gpu` com `timeout 900`. Se o .mp4 sair vazio (GPU falhar), faça FALLBACK pro CPU: `npx hyperframes render --quality high` (sem flags de GPU).',
     'Ao terminar com sucesso, sua ÚLTIMA linha deve ser exatamente: `RESULT: <caminho absoluto do .mp4 final>`.',
     'Se falhar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
   ].join('\n');
