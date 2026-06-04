@@ -70,9 +70,31 @@ Trocar de jarvis = reimplementar só as **bordas** (intake de comando, store,
 spawn, envio). O contrato `RESULT: <caminho.mp4>` na última linha do agente é o
 que mantém o worker desacoplado de *qual* skill ou *qual* bot está rodando.
 
+## Status
+
+- ✅ **v1 implementado e mergeado no openpcbot** (branch `feat/fila-videos` → `main`,
+  149 testes). Roda em produção no DGX após `npm run build` + restart do serviço.
+- ⏳ **Fase 2 (pendência): extrair o motor pra este repo.** Hoje o código vive dentro
+  do openpcbot. A Fase 2 move o núcleo portável (lógica pura + contratos `QueueDeps`/
+  `QueueStore` + schema `video_jobs`) pra cá como pacote, e o openpcbot passa a
+  **importar** em vez de manter cópia inline.
+
+### Decisão de acoplamento (Fase 2)
+
+O openpcbot fica **ligado** ao mkivideos (importa o motor), mas com independência onde
+importa:
+
+- **Runtime independente:** `npm run build` embute o motor no `dist/` do openpcbot — o
+  bot no ar não precisa do mkivideos presente/funcionando; não cai se o mkivideos mudar.
+- **Versão fixada (pinned):** o openpcbot trava uma versão (git tag / `npm version`);
+  melhorias no mkivideos só entram quando ele roda `npm update` + rebuild. Update sob comando.
+- **Fonte única:** melhora-se o motor uma vez aqui → todos os hosts (openpcbot, openclaw,
+  hermes…) ganham ao adotar a nova versão. Sem cópia que diverge.
+
 ### Backlog v2
 
 - Trava global de render (serializa até chamadas diretas das skills) — ponto único
   compartilhável entre hosts via um `render-gpu.sh` com lock.
 - Prioridade / job urgente; retry automático; concorrência configurável.
 - Override de pasta por host (`VIDEO_OUTPUT_DIR`) além do `--pasta` por comando.
+- Runner standalone (rodar a fila sem bot: store SQLite default + `claude -p` + notifier).
