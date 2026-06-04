@@ -94,8 +94,10 @@ Trocar de host = reescrever só os **adaptadores**. O núcleo fica intacto.
 ## Instalação
 
 ```bash
-# como dependência de um host (caminho local)
-npm install ../mkivideos          # ou: "mkivideos": "file:../mkivideos" no package.json
+# como dependência de um host — git tag pinada (recomendado: cópia real, versão travada)
+#   package.json: "mkivideos": "git+ssh://git@github.com/inematds/mkivideos.git#v0.1.0"
+npm install
+# (dev local rápido, sem pinning: "mkivideos": "file:../mkivideos" — symlink pro folder)
 
 # para hackear o próprio pacote
 git clone git@github.com:inematds/mkivideos.git && cd mkivideos
@@ -246,9 +248,15 @@ ligado). Ele **importa este pacote** e fornece os adaptadores:
 
 ### Acoplamento: ligado no fonte, independente no runtime
 
-- O openpcbot **importa** o motor (`file:../mkivideos`) → melhora-se aqui uma vez, ele ganha.
-- **Versão fixada (pinned):** a atualização só entra quando ele roda `npm update` + rebuild — sob comando.
-- **Runtime independente:** depois do build, o bot no ar não cai se este repo mudar.
+- O openpcbot **importa** o motor por **git tag pinada** (`git+ssh://…/mkivideos.git#v0.1.0`).
+  O npm instala uma **cópia real** dessa tag em `node_modules` (não symlink) e roda o `prepare` (build).
+- **Versão fixada (pinned):** o openpcbot fica preso à `v0.1.0`. Melhoria aqui só entra quando se
+  publica uma **nova tag** e ele roda `npm update mkivideos` + rebuild — sob comando.
+- **Runtime independente:** o openpcbot **não depende do folder local** `mkivideos`; usa a cópia
+  instalada da tag. Mover/apagar este repo não derruba o bot.
+
+> Trade-off honesto: com `file:../mkivideos` (symlink) NÃO há pinning nem independência — o host lê o
+> `dist/` vivo do folder. Por isso a integração de produção usa a **git tag**.
 
 ---
 
