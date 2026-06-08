@@ -64,3 +64,16 @@ sem abrir. Codificar no nome (a decidir a ordem exata): **curso · trilha · mó
 formato (16x9/9x16)** — e idealmente **ordenável** (prefixo numérico, ver P2).
 Ex.: `skills-craft_t1-m1_o-que-e-uma-skill_16x9.mp4`.
 Objetivo: importar/publicar em lote identificando curso+trilha+módulo+formato só pelo nome.
+
+## P5 — Status da fila por CURSO + progresso X/Y
+
+**Origem:** pedido do Nei, 2026-06-08.
+
+Hoje `/mkivideos fila` e o dashboard mostram cada job cru (skill + input/URL truncada). Falta:
+- **Agrupar/rotular por nome do curso** (ex.: "Skills Craft", "Skill Design") em vez da URL.
+- **Progresso do total**: `X/Y feito` por curso/grupo (ex.: `skills-craft — 3/25 feito`), e um total geral.
+- Idealmente: nome do **módulo** em cada job (não a URL), e o curso como cabeçalho do grupo.
+
+Onde: `formatQueueList` (Telegram) e o dashboard `/videos` (agrupar por curso, contar done/total).
+Requer um campo de agrupamento no job (ex.: `course` + `module` no schema, ou derivar do input).
+Conecta com P4 (nomenclatura) — mesmo metadado (curso·trilha·módulo) serve pros dois.
