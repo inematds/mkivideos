@@ -82,3 +82,20 @@ Conecta com P4 (nomenclatura) — mesmo metadado (curso·trilha·módulo) serve 
 - **Processando agora** (job `running`) — qual curso/módulo está sendo feito neste momento;
 - **Na lista de espera** (os outros jobs `queued`, na ordem) — o que ainda falta.
 Tanto no `/mkivideos fila` (Telegram) quanto no dashboard, com o progresso X/Y por curso ao lado.
+
+## P6 — Dashboard otimizado (gráficos, máquina, refresh ajustável)
+
+**Origem:** pedido do Nei, 2026-06-08. (Engloba/estende P5.)
+
+Evoluir o painel `/videos` de "tabela simples" para um dashboard de operação:
+- **Gráficos com histórico e previsão:**
+  - histórico: jobs concluídos ao longo do tempo, throughput (jobs/h), tempo médio por job/curso;
+  - **previsão/ETA:** quando a fila termina (baseado no tempo médio de render × jobs restantes), ETA por curso.
+- **Lista abaixo** dos gráficos: os jobs (com P5 — agrupado por curso, processando × espera, X/Y feito, nome do módulo).
+- **Informações da máquina:** núcleos/CPU + load, GPU, RAM, disco, nº de render workers ativos,
+  progresso do render atual (%), modo de render (screenshot vs beginframe).
+- **Frequência de atualização:** **ajustável** (ex.: 2s/5s/15s/off) **ou refresh manual** (botão), em vez do 5s fixo.
+
+Quick-fix relacionado (urgente, fora do v2): hoje `listJobs()` tem `LIMIT 50` e ordena pelos mais novos
+→ com fila grande o **job `running` (mais antigo) some** do dashboard e do `/mkivideos fila`. Subir o limite
+(ex.: 1000) ou sempre incluir running+queued sem corte. Afeta dashboard `/videos` e `formatQueueList`.
