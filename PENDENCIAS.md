@@ -77,3 +77,8 @@ Hoje `/mkivideos fila` e o dashboard mostram cada job cru (skill + input/URL tru
 Onde: `formatQueueList` (Telegram) e o dashboard `/videos` (agrupar por curso, contar done/total).
 Requer um campo de agrupamento no job (ex.: `course` + `module` no schema, ou derivar do input).
 Conecta com P4 (nomenclatura) — mesmo metadado (curso·trilha·módulo) serve pros dois.
+
+**P5 (cont.) — separar PROCESSANDO × ESPERA:** o status deve mostrar claramente, em duas seções:
+- **Processando agora** (job `running`) — qual curso/módulo está sendo feito neste momento;
+- **Na lista de espera** (os outros jobs `queued`, na ordem) — o que ainda falta.
+Tanto no `/mkivideos fila` (Telegram) quanto no dashboard, com o progresso X/Y por curso ao lado.
