@@ -99,3 +99,27 @@ Evoluir o painel `/videos` de "tabela simples" para um dashboard de operação:
 Quick-fix relacionado (urgente, fora do v2): hoje `listJobs()` tem `LIMIT 50` e ordena pelos mais novos
 → com fila grande o **job `running` (mais antigo) some** do dashboard e do `/mkivideos fila`. Subir o limite
 (ex.: 1000) ou sempre incluir running+queued sem corte. Afeta dashboard `/videos` e `formatQueueList`.
+
+## P7 — Worker autônomo NÃO completa vídeo profundo de curso (analisar)
+
+**Origem:** falhas reais na fila, 2026-06-08. **Status:** decidir solução (analisar amanhã).
+
+**Sintoma:** jobs de curso (videos-cursos-inema, profundo por módulo) falham com
+`sem RESULT no output do agente` — cada um ~13 min, depois `failed`. Dos 96 jobs: 2 done
+(parciais), 3 failed, 90 cancelados (pra não queimar ~19h falhando).
+
+**Causa:** vídeo profundo de módulo = pipeline de ~1,5–2h (puxar conteúdo → spec+SVG →
+narração → **render ~14–90 min**). A sessão autônoma do `runAgent` **encerra os turnos em
+~13 min**, no meio do setup, **antes do render** → nunca emite `RESULT:` → worker marca failed.
+(Confirmado: criou `vb-imersao-videos/` mas não terminou. Os 2 "done": agentic-workflow fez só
+a landing `00-overview.mp4`; skill-design escreveu numa pasta sobrando `skills-craft-videos/`.)
+
+**A fila gerencia o fluxo bem — o problema é o TAMANHO do trabalho por job.** Opções:
+- **(a)** enfileirar jobs **leves** (landing/trilha overview, que cabem e terminam) e tirar o
+  profundo-por-módulo da fila autônoma;
+- **(b)** vídeo profundo **interativo** (com o Nei no loop — funciona, mas não é "joga e esquece");
+- **(c)** **redesenhar o worker** pra render em **background + poll**: o agente dispara o render e
+  o worker fica checando o arquivo até ficar pronto (libera a sessão), em vez de esperar tudo numa
+  sessão só. Talvez também: 1 job = 1 etapa (setup / narração / render) em vez de 1 job = tudo.
+
+**Curto prazo:** não despejar jobs profundos na fila autônoma até (c). Usar (b) interativo.
