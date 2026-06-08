@@ -10,6 +10,11 @@ ou **standalone**, sem bot nenhum.
 > satura CPU. Rodar vários ao mesmo tempo trava a máquina. Esta fila **serializa**
 > (concorrência = 1) e organiza o disparo — você comanda, ela controla o resto.
 
+> 📚 **Ecossistema:** a fila cobre 3 skills, mas há ~12 projetos/skills que criam vídeo
+> (demonstrativo, plan-editor, mdd, pixflow, remotion, videoprodutor, promptfilmes, times
+> de marketing…). Mapa completo em **[docs/ecossistema-video.md](docs/ecossistema-video.md)** —
+> referência para qualquer hub/UI/fila unificada.
+
 ---
 
 ## Índice
