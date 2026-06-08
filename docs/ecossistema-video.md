@@ -103,8 +103,12 @@ Quem efetivamente transforma a "receita" em `.mp4`:
 Recebem um **prompt** (cartão de cena, câmera, ação) e geram o clipe. Dividem-se em:
 
 - **Cloud:** **Seedance · Kling · Runway (Gen-4) · Veo · Luma · Sora.**
-- **Local / self-hosted (no DGX):** **SkyReels V3** (`~/projetos/skyreelsv3` — fork do modelo SkyReels
-  V3 com integração própria). Roda na própria máquina, sem depender de API externa.
+- **Local / self-hosted (no DGX):**
+  - **SkyReels V3** (`~/projetos/skyreelsv3` — fork do modelo SkyReels V3 com integração própria);
+  - **HuMo / HuMo2** (`~/projetos/HuMo`, `humo2`) — geração de vídeo **humano-cêntrico** (áudio/texto → pessoa);
+  - **LongCat-Video** (`~/projetos/loncatv`) — geração de **vídeo longo**.
+
+  Rodam na própria máquina (via **VideosDGX**, seção J), sem depender de API externa.
 
 A skill **mestre-direcao-dinamica (mdd)** monta o storyboard + prompt/negativo pra esses geradores;
 **seedance-loop-prompt** foca em vídeo de **loop** (background de site).
@@ -119,9 +123,10 @@ pra **rodar modelos de geração de vídeo no DGX Spark** (ex.: SkyReels e outro
 
 | Tipo | Opções |
 |---|---|
-| **Voz (TTS)** | **inemavox** (`bella`/`rachel`, vozes clonadas locais — default) · **Kokoro** (`pf_dora`/`pm_alex`, local grátis) · **ElevenLabs** (cloud, precisa key) |
+| **Voz (TTS)** | **inemavox** (`bella`/`rachel`, vozes clonadas locais — default; motor **Chatterbox-VC**, `~/projetos/chatterbox`) · **Kokoro** (`pf_dora`/`pm_alex`, local grátis) · **ElevenLabs** (cloud, precisa key) |
 | **Imagem / b-roll** | **flux2-klein** (default de imagem) · **NanoBanana** · **inemaimg** (serviço local de geração, `localhost:8000`) |
 | **Upscale de imagem** | **inemaupsk** (upscaler local, `localhost:8002`) |
+| **Dublagem / localização** | **Dublar Pro** (`~/projetos/dublar`, `dublar5`) — dublagem automática de vídeos pra outras línguas |
 
 ---
 
