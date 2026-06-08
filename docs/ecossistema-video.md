@@ -47,18 +47,36 @@
 | **videoprodutor** | skill **"Orquestrador"** de produção de vídeo | (orquestração) |
 | **seedance-loop-prompt** | prompt de **vídeo em loop** (background de site) para Seedance | prompt |
 
-## B) Projetos (repos) de vídeo / cinema
+## B) Orquestrador do ecossistema
 
 | Projeto (`~/projetos/…`) | O que é |
 |---|---|
-| **promptfilmes** | "🎬 Prompt Director — Imagens e Cinema com IA" |
-| **promptprof** | prompts/roteiros (subpastas tipo `hormozi-12`, `kairoboost`) — copy/marketing-vídeo *(a confirmar escopo)* |
-| **fontefilm** (o "fontfilm" citado) | projeto de film *(a confirmar escopo)* |
-| **fpfilmv1** | film + `curso`/`doc`/`index.html` *(a confirmar — pode ser landing/curso)* |
-| **remotion** / **remotion-templates** / **remotion-test** | templates e experimentos Remotion ("Remotion Templates by RVE") |
-| **videoprodutor** | repo do orquestrador "videoprodutor — o Orquestrador" |
+| **videoprodutor** | 🎯 **"O Produtor / Orquestrador".** Entra **um link/fonte** → sai **plano + execução** de um vídeo profissional, ponta a ponta. Não refaz render/geração: **coordena as peças que já existem** (planejamento, direção, prompt, imagem, voz, render) numa linha de montagem, com **Remotion** como motor unificado (camada cinema do pixflow + 54 componentes do remotion-templates). O próprio README diz: *"~11 skills e 6 motores de vídeo espalhados, ~70% da fábrica já existe"* — é o **hub unificado** do ecossistema (ver `videoprodutor/docs/01`). |
 
-## C) Marketing — times de agentes que também produzem vídeo
+> ⚠️ **Overlap importante:** o `videoprodutor` já é a tentativa de hub/orquestração de
+> vídeo. Qualquer trabalho de "fila/UI unificada" deve **partir dele**, não competir.
+
+## C) Motores (repos) que CRIAM vídeo
+
+| Projeto | O que é |
+|---|---|
+| **fontefilm** (o "fontfilm" citado) | 🎬 **Diretor de cinema IA, local.** texto + estilo → roteiro (3 atos) → bíblia (personagens/locações/paleta) → decupagem (plano+câmera por painel) → imagens → narração → montagem → **vídeo final** (estilo quadrinhos; teoria de transições do Scott McCloud). O "cérebro de direção" é o diferencial. |
+| **remotion** / **remotion-templates** / **remotion-test** | Motor/templates de vídeo em **React (Remotion)** — "Remotion Templates by RVE", 54 componentes; base de render do `videoprodutor`. |
+
+## D) Cursos sobre criação de vídeo/imagem (educacionais, INEMA.CLUB — NÃO são ferramentas)
+
+| Projeto | O que é |
+|---|---|
+| **promptfilmes** | 📚 Curso **"Prompt Director — Imagens e Cinema com IA"**: prompts visuais p/ Midjourney v7, Sora 2, Veo 3, Runway Gen-4, Flux, Nano Banana, Seedance 2, Kling 2.5… 4 trilhas, 19 módulos, 24 páginas. [inematds.github.io/promptfilmes](https://inematds.github.io/promptfilmes/) |
+| **fpfilmv1** | 📚 Curso **"Freepik Film \| INEMA.CLUB"** — trilhas 1–6 sobre fazer filme com as ferramentas de IA da Freepik. |
+
+## E) Projetos de trabalho / marketing (geram vídeo como entregável)
+
+| Projeto | O que é |
+|---|---|
+| **promptprof** | 🗂️ Área de trabalho de **marketing + planejamento de vídeo**: subpastas `hormozi-12` (com `MDD-PACKAGE.md`, `plano-edicao.json`, `RESUMO.md`, `video/`) e `kairoboost` (`presets.md`, `SYSTEM-PROMPT.md`, `vocabulario.md`). Consome mdd + video-plan-editor. |
+
+## F) Marketing — times de agentes que também produzem vídeo
 
 | Projeto | O que é |
 |---|---|
