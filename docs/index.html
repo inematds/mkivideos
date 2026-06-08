@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>mkivideos — Fila de Vídeos com IA | INEMA.CLUB</title>
+<meta name="description" content="Motor portável de fila de vídeos: você joga o trabalho, o sistema gera um por vez. Comandado por Telegram, visível num painel, host-agnóstico." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0D1321; --bg2:#1D2D44; --bg3:#3E5C76; --fg:#F0EBD8; --mut:#748CAB;
+    --acc:#FFC300; --acc2:#FCA311; --code:#2EC4B6; --red:#e07a7a; --green:#2EC4B6;
+    --maxw:1180px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.55;overflow-x:hidden}
+  .mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+  a{color:var(--acc);text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  h1,h2,h3{font-family:Sora,sans-serif;letter-spacing:-.02em;line-height:1.05}
+  .acc{color:var(--acc)} .acc2{color:var(--acc2)} .code{color:var(--code)} .mut{color:var(--mut)}
+
+  /* ambient bg */
+  body::before{content:"";position:fixed;inset:0;z-index:-2;background:
+    radial-gradient(1100px 700px at 12% -8%, rgba(255,195,0,.16), transparent 60%),
+    radial-gradient(1000px 700px at 92% 8%, rgba(46,196,182,.10), transparent 60%);pointer-events:none}
+  body::after{content:"";position:fixed;inset:0;z-index:-2;opacity:.5;pointer-events:none;
+    background-image:linear-gradient(rgba(116,140,171,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(116,140,171,.06) 1px,transparent 1px);
+    background-size:60px 60px}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:rgba(13,19,33,.72);border-bottom:1px solid rgba(62,92,118,.4)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{font-family:Sora;font-weight:800;font-size:20px;display:flex;align-items:center;gap:10px}
+  .brand .dot{width:11px;height:11px;border-radius:50%;background:var(--acc);box-shadow:0 0 14px var(--acc)}
+  .nav-links{display:flex;gap:26px;align-items:center;font-size:15px;font-weight:600}
+  .nav-links a{color:var(--mut)} .nav-links a:hover{color:var(--fg)}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:11px;font-weight:700;font-size:15px;border:2px solid var(--bg3);color:var(--fg);transition:.15s}
+  .btn.primary{background:linear-gradient(120deg,var(--acc),var(--acc2));color:#0D1321;border-color:transparent}
+  .btn:hover{transform:translateY(-1px)}
+  .btn.primary:hover{box-shadow:0 12px 30px rgba(255,195,0,.28)}
+
+  /* hero */
+  header.hero{padding:96px 0 70px;text-align:center}
+  .eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:"JetBrains Mono",monospace;font-size:14px;letter-spacing:.26em;color:var(--mut);text-transform:uppercase;margin-bottom:26px;border:1px solid var(--bg3);padding:9px 18px;border-radius:999px}
+  .eyebrow .dot{width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+  header.hero h1{font-size:clamp(44px,7vw,86px);font-weight:800}
+  header.hero h1 .big{font-size:1.1em}
+  .lead{font-size:clamp(18px,2.4vw,24px);color:var(--mut);max-width:760px;margin:26px auto 0}
+  .lead b{color:var(--fg)}
+  .hero-cta{display:flex;gap:14px;justify-content:center;margin-top:38px;flex-wrap:wrap}
+  .pills{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:40px}
+  .pill{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--mut);border:1px solid var(--bg3);border-radius:999px;padding:8px 16px;background:rgba(29,45,68,.4)}
+  .pill b{color:var(--acc)}
+
+  section{padding:64px 0}
+  .sec-head{text-align:center;margin-bottom:48px}
+  .sec-head .kick{font-family:"JetBrains Mono";font-size:13px;letter-spacing:.26em;color:var(--acc);text-transform:uppercase}
+  .sec-head h2{font-size:clamp(30px,4vw,46px);font-weight:800;margin-top:14px}
+  .sec-head p{color:var(--mut);max-width:680px;margin:16px auto 0;font-size:18px}
+
+  /* flow */
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:stretch}
+  .flow .step{background:linear-gradient(160deg,#22364f,var(--bg2));border:1px solid var(--bg3);border-radius:18px;padding:26px 22px;position:relative}
+  .flow .step .n{font-family:"JetBrains Mono";font-size:13px;color:var(--acc);font-weight:700}
+  .flow .step h3{font-size:21px;margin:12px 0 8px}
+  .flow .step p{color:var(--mut);font-size:15px}
+  .flow .step .ico{font-size:30px}
+  .flow .arrow{position:absolute;right:-12px;top:50%;transform:translateY(-50%);color:var(--acc);font-size:24px;z-index:2}
+  @media(max-width:860px){.flow{grid-template-columns:1fr 1fr}.flow .arrow{display:none}}
+
+  /* features */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .card{background:linear-gradient(160deg,#22364f,var(--bg2));border:1px solid var(--bg3);border-radius:18px;padding:30px;transition:.18s}
+  .card:hover{border-color:var(--acc);transform:translateY(-3px)}
+  .card .ico{font-size:34px}
+  .card h3{font-size:22px;margin:14px 0 10px}
+  .card p{color:var(--mut);font-size:15.5px}
+
+  /* course map */
+  .courses{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  @media(max-width:760px){.courses{grid-template-columns:1fr}}
+  .course{background:linear-gradient(160deg,#22364f,var(--bg2));border:1px solid var(--bg3);border-radius:18px;padding:24px 26px}
+  .course .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .course h3{font-size:21px} .course .meta{font-family:"JetBrains Mono";font-size:13px;color:var(--mut)}
+  .course .desc{color:var(--mut);font-size:14.5px;margin:8px 0 18px}
+  .bar{height:12px;border-radius:999px;background:var(--bg);border:1px solid var(--bg3);overflow:hidden;display:flex}
+  .bar i{height:100%;display:block}
+  .bar .done{background:linear-gradient(90deg,var(--code),var(--acc))}
+  .bar .run{background:repeating-linear-gradient(45deg,var(--acc),var(--acc) 6px,var(--acc2) 6px,var(--acc2) 12px)}
+  .bar .fail{background:var(--red)}
+  .legend{display:flex;gap:16px;margin-top:12px;font-family:"JetBrains Mono";font-size:12px;color:var(--mut);flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .courses-note{text-align:center;color:var(--mut);font-size:14px;margin-top:24px;font-family:"JetBrains Mono"}
+
+  /* channels */
+  .chan{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:860px){.chan{grid-template-columns:1fr}}
+  .chan .c{background:rgba(10,22,38,.6);border:1px solid var(--bg3);border-radius:16px;padding:26px}
+  .chan .c h3{font-size:19px;display:flex;align-items:center;gap:10px}
+  .chan .c code{display:block;margin-top:14px;background:#0a1626;border:1px solid var(--bg3);border-radius:10px;padding:14px 16px;font-family:"JetBrains Mono";font-size:13.5px;color:var(--code);overflow-x:auto;white-space:pre}
+
+  footer{border-top:1px solid var(--bg3);padding:48px 0;margin-top:40px;text-align:center}
+  footer .brand2{font-family:Sora;font-weight:800;font-size:30px}
+  footer .brand2 .b1{color:var(--fg)} footer .brand2 .b2{color:var(--acc)}
+  footer p{color:var(--mut);margin-top:12px;font-size:15px}
+  footer .links{margin-top:18px;display:flex;gap:22px;justify-content:center;font-weight:600}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <div class="brand"><span class="dot"></span>mkivideos</div>
+  <div class="nav-links">
+    <a href="#como">Como funciona</a>
+    <a href="#recursos">Recursos</a>
+    <a href="#cursos">Cursos</a>
+    <a class="btn" href="https://github.com/inematds/mkivideos">GitHub ↗</a>
+  </div>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow"><span class="dot"></span>INEMA.CLUB · FERRAMENTA DE VÍDEO</div>
+  <h1>Fila de Vídeos<br/><span class="acc">com IA</span></h1>
+  <p class="lead">Você <b>joga o trabalho</b>, o sistema gera <b>um vídeo por vez</b>. Comandado por
+    Telegram, visível num painel, e <b>host-agnóstico</b> — roda em qualquer bot ou standalone.
+    Concorrência controlada pra <b>não sobrecarregar a máquina</b>.</p>
+  <div class="hero-cta">
+    <a class="btn primary" href="https://github.com/inematds/mkivideos">Ver no GitHub ↗</a>
+    <a class="btn" href="#como">Como funciona ↓</a>
+  </div>
+  <div class="pills">
+    <span class="pill">Telegram <b>/mkivideos</b></span>
+    <span class="pill">Concorrência <b>= 1</b> · FIFO</span>
+    <span class="pill">Painel <b>:3141</b></span>
+    <span class="pill">CLI <b>standalone</b></span>
+    <span class="pill">ports &amp; adapters</span>
+  </div>
+</div></header>
+
+<section id="como"><div class="wrap">
+  <div class="sec-head">
+    <div class="kick">O fluxo</div>
+    <h2>Joga → enfileira → gera</h2>
+    <p>Cada pedido vira um job. O worker pega um de cada vez e spawna uma sessão de agente
+       autônoma que produz o vídeo de ponta a ponta.</p>
+  </div>
+  <div class="flow">
+    <div class="step"><div class="ico">💬</div><div class="n">01</div><h3>Você joga</h3><p>Pelo Telegram (<span class="mono">/mkivideos</span>) ou direto. Vira um job na fila.</p><span class="arrow">→</span></div>
+    <div class="step"><div class="ico">📋</div><div class="n">02</div><h3>Fila</h3><p>Persistente (SQLite). FIFO, <b>1 por vez</b> — não sobrecarrega.</p><span class="arrow">→</span></div>
+    <div class="step"><div class="ico">🤖</div><div class="n">03</div><h3>Worker</h3><p>Spawna uma sessão Claude autônoma que roda a skill e renderiza.</p><span class="arrow">→</span></div>
+    <div class="step"><div class="ico">🎬</div><div class="n">04</div><h3>Vídeo</h3><p>Notifica no Telegram + aparece no painel. Joga mais quando quiser.</p></div>
+  </div>
+</div></section>
+
+<section id="recursos" style="background:rgba(29,45,68,.25);border-block:1px solid rgba(62,92,118,.35)"><div class="wrap">
+  <div class="sec-head">
+    <div class="kick">Por que existe</div>
+    <h2>Um motor, não um silo</h2>
+  </div>
+  <div class="grid">
+    <div class="card"><div class="ico">⚖️</div><h3>1 por vez, de propósito</h3><p>Render de vídeo satura CPU. A fila <b>serializa</b> (concorrência = 1, FIFO) e gerencia o fluxo — você joga à vontade.</p></div>
+    <div class="card"><div class="ico">🔌</div><h3>Host-agnóstico</h3><p><b>Ports &amp; adapters:</b> o núcleo não sabe qual bot/DB existe. Roda em openpcbot, openclaw, hermes… ou standalone.</p></div>
+    <div class="card"><div class="ico">📡</div><h3>Telegram + painel + CLI</h3><p>Comanda por <span class="mono">/mkivideos</span>, acompanha no dashboard <span class="mono">:3141</span>, ou roda <span class="mono">mkivideos run</span> sem bot.</p></div>
+    <div class="card"><div class="ico">🧩</div><h3>Cobre o ecossistema</h3><p>explicativo · demonstrativo · cursos INEMA — e um catálogo maior de skills, motores e geradores IA.</p></div>
+    <div class="card"><div class="ico">🛟</div><h3>Não trava</h3><p>Job que falha vira <span class="mono">failed</span> e a fila segue. Jobs órfãos de restart são recuperados no boot.</p></div>
+    <div class="card"><div class="ico">⚡</div><h3>Render na GPU</h3><p>HyperFrames com <span class="mono">--gpu --browser-gpu</span> (NVENC) e fallback automático pro CPU.</p></div>
+  </div>
+</div></section>
+
+<section id="cursos"><div class="wrap">
+  <div class="sec-head">
+    <div class="kick">Em geração</div>
+    <h2>Mapa dos cursos</h2>
+    <p>Cursos INEMA sendo transformados em vídeo (1 vídeo profundo por módulo). Status da fila.</p>
+  </div>
+  <div class="courses">
+    <div class="course">
+      <div class="top"><h3>🧠 Agent Skills Mastery</h3><span class="meta">48 módulos</span></div>
+      <div class="desc">skills · 6 trilhas × 8 módulos</div>
+      <div class="bar"><i class="done" style="width:0%"></i><i class="run" style="width:0%"></i><i class="fail" style="width:0%"></i></div>
+      <div class="legend"><span>0/48 feito</span></div>
+    </div>
+    <div class="course">
+      <div class="top"><h3>🛠️ Criando Agent Skills</h3><span class="meta">25 módulos</span></div>
+      <div class="desc">skills-craft · 5 trilhas × 5 módulos</div>
+      <div class="bar"><i class="done" style="width:0%"></i></div>
+      <div class="legend"><span>0/25 feito</span></div>
+    </div>
+    <div class="course">
+      <div class="top"><h3>🎨 Skill Design</h3><span class="meta">16 módulos</span></div>
+      <div class="desc">skill-design · 4 trilhas × 4 módulos</div>
+      <div class="bar"><i class="done" style="width:6.25%"></i></div>
+      <div class="legend"><span>1/16 feito</span></div>
+    </div>
+    <div class="course">
+      <div class="top"><h3>🚀 Imersão Vibe Coding</h3><span class="meta">6 módulos</span></div>
+      <div class="desc">vb-imersao · do zero ao SaaS com IA</div>
+      <div class="bar"><i class="run" style="width:16.6%"></i><i class="fail" style="width:33.2%"></i></div>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--acc)"></span>1 rodando</span>
+        <span><span class="sw" style="background:var(--red)"></span>2 falhas</span>
+        <span>3 na fila</span>
+      </div>
+    </div>
+    <div class="course">
+      <div class="top"><h3>⚙️ Agentic Workflow</h3><span class="meta">1 (curso inteiro)</span></div>
+      <div class="desc">agentic-workflow · job único</div>
+      <div class="bar"><i class="done" style="width:100%"></i></div>
+      <div class="legend"><span>✅ 1/1 feito</span></div>
+    </div>
+  </div>
+  <div class="legend" style="justify-content:center;margin-top:22px">
+    <span><span class="sw" style="background:var(--code)"></span>feito</span>
+    <span><span class="sw" style="background:var(--acc)"></span>rodando</span>
+    <span><span class="sw" style="background:var(--red)"></span>falha</span>
+    <span><span class="sw" style="background:var(--bg3)"></span>na fila</span>
+  </div>
+  <p class="courses-note">Snapshot da fila — 2026-06-08 · total 96 jobs (5 cursos)</p>
+</div></section>
+
+<section style="background:rgba(29,45,68,.25);border-block:1px solid rgba(62,92,118,.35)"><div class="wrap">
+  <div class="sec-head">
+    <div class="kick">3 caminhos</div>
+    <h2>Como comandar</h2>
+  </div>
+  <div class="chan">
+    <div class="c"><h3>💬 Telegram</h3><code>/mkivideos explicativo "Bayes"
+/mkivideos curso &lt;link&gt;
+/mkivideos fila
+/mkivideos help</code></div>
+    <div class="c"><h3>📊 Painel</h3><code>http://localhost:3141/videos
+  ?token=…
+
+→ status, progresso,
+  cancelar jobs</code></div>
+    <div class="c"><h3>⌨️ Standalone (CLI)</h3><code>mkivideos add explicativo "X"
+mkivideos fila
+mkivideos run --port 3141</code></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="brand2"><span class="b1">INEMA</span><span class="b2">.CLUB</span></div>
+  <p>mkivideos — motor portável de fila de vídeos · open source</p>
+  <div class="links">
+    <a href="https://github.com/inematds/mkivideos">GitHub ↗</a>
+    <a href="https://inema.club">inema.club ↗</a>
+  </div>
+</div></footer>
+
+</body>
+</html>
