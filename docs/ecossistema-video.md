@@ -120,7 +120,8 @@ pra **rodar modelos de geração de vídeo no DGX Spark** (ex.: SkyReels e outro
 | Tipo | Opções |
 |---|---|
 | **Voz (TTS)** | **inemavox** (`bella`/`rachel`, vozes clonadas locais — default) · **Kokoro** (`pf_dora`/`pm_alex`, local grátis) · **ElevenLabs** (cloud, precisa key) |
-| **Imagem / b-roll** | **flux2-klein** (default de imagem) · **NanoBanana** |
+| **Imagem / b-roll** | **flux2-klein** (default de imagem) · **NanoBanana** · **inemaimg** (serviço local de geração, `localhost:8000`) |
+| **Upscale de imagem** | **inemaupsk** (upscaler local, `localhost:8002`) |
 
 ---
 
