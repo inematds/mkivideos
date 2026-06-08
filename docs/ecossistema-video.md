@@ -86,6 +86,44 @@
 
 ---
 
+## G) Motores / formatos de render
+
+Quem efetivamente transforma a "receita" em `.mp4`:
+
+| Motor | O que é | Quem usa |
+|---|---|---|
+| **HyperFrames** | HTML + GSAP → MP4 (Chrome headless + FFmpeg). Sem chave de API, local. | video-explicativo, video-demonstrativo, videos-cursos-inema |
+| **Remotion** | vídeo programático em **React** → MP4 | remotion, pixflow, videoprodutor |
+| **pixflow** | parallax 2.5D **determinístico** (sem IA): Depth-Anything-V2 → Three.js/WebGL → Remotion → FFmpeg | pixflow-motion |
+| **FFmpeg** | encode/concat/trim; **NVENC** (GPU) no encode | base de todos |
+| **Canvas + frames** | extração de frames + render em canvas (scroll-driven) | 3d-animation-creator |
+
+## H) Geradores de vídeo por IA (prompt → clipe)
+
+Recebem um **prompt** (cartão de cena, câmera, ação) e geram o clipe. Dividem-se em:
+
+- **Cloud:** **Seedance · Kling · Runway (Gen-4) · Veo · Luma · Sora.**
+- **Local / self-hosted (no DGX):** **SkyReels V3** (`~/projetos/skyreelsv3` — fork do modelo SkyReels
+  V3 com integração própria). Roda na própria máquina, sem depender de API externa.
+
+A skill **mestre-direcao-dinamica (mdd)** monta o storyboard + prompt/negativo pra esses geradores;
+**seedance-loop-prompt** foca em vídeo de **loop** (background de site).
+
+## J) Infra — VideosDGX (rodar modelos de vídeo no DGX)
+
+**`~/projetos/VideosDGX`** — "Docker Multi-Container para Video LLMs": infraestrutura containerizada
+pra **rodar modelos de geração de vídeo no DGX Spark** (ex.: SkyReels e outros). É a camada de
+**infra/orquestração de containers** dos geradores locais — onde os modelos da seção H (local) rodam.
+
+## I) Apoio — voz (TTS) e imagem (b-roll)
+
+| Tipo | Opções |
+|---|---|
+| **Voz (TTS)** | **inemavox** (`bella`/`rachel`, vozes clonadas locais — default) · **Kokoro** (`pf_dora`/`pm_alex`, local grátis) · **ElevenLabs** (cloud, precisa key) |
+| **Imagem / b-roll** | **flux2-klein** (default de imagem) · **NanoBanana** |
+
+---
+
 ## Onde a fila `mkivideos` entra (e o que falta)
 
 - **Hoje:** a fila `/mkivideos` ([README](../README.md)) orquestra **3 skills** —

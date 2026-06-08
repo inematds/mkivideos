@@ -10,10 +10,13 @@ ou **standalone**, sem bot nenhum.
 > satura CPU. Rodar vários ao mesmo tempo trava a máquina. Esta fila **serializa**
 > (concorrência = 1) e organiza o disparo — você comanda, ela controla o resto.
 
-> 📚 **Ecossistema:** a fila cobre 3 skills, mas há ~12 projetos/skills que criam vídeo
-> (demonstrativo, plan-editor, mdd, pixflow, remotion, videoprodutor, promptfilmes, times
-> de marketing…). Mapa completo em **[docs/ecossistema-video.md](docs/ecossistema-video.md)** —
-> referência para qualquer hub/UI/fila unificada.
+> 📚 **Ecossistema:** a fila cobre 3 skills, mas o universo de criação de vídeo é grande —
+> **skills** (explicativo, demo, cursos, plan-editor, mdd, pixflow, remotion, 3d-animation,
+> videoprodutor…), **motores** (HyperFrames, Remotion, pixflow, FFmpeg), **geradores IA**
+> (cloud: Seedance/Kling/Runway/Veo/Luma/Sora · local: **SkyReels V3**), **infra DGX**
+> (**VideosDGX**) e **apoio** (TTS inemavox/Kokoro/ElevenLabs · imagem flux2-klein/NanoBanana).
+> Catálogo completo em **[docs/ecossistema-video.md](docs/ecossistema-video.md)** — referência
+> para qualquer hub/UI/fila unificada.
 
 ---
 
