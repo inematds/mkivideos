@@ -60,6 +60,19 @@ describe('createDashboardServer', () => {
   it('404 for unknown route', async () => {
     expect((await fetch(`${base}/nope`)).status).toBe(404);
   });
+
+  it('GET /api/stats returns aggregated stats + machine info', async () => {
+    const a = store.enqueue({ skill: 'curso', input: '1', opts: null, notify: 'silencioso', sendVideo: false, chatId: null, course: 'skills-craft', module: '1.1' });
+    store.enqueue({ skill: 'curso', input: '2', opts: null, notify: 'silencioso', sendVideo: false, chatId: null, course: 'skills-craft', module: '1.2' });
+    store.markRunning(a); store.markDone(a, '/x.mp4');
+    const res = await fetch(`${base}/api/stats`);
+    const body = await res.json() as { stats: { byStatus: Record<string, number>; courses: Array<{ course: string; done: number; total: number }> }; machine: { cpus: number }; running: unknown[] };
+    expect(res.status).toBe(200);
+    expect(body.stats.byStatus.done).toBe(1);
+    expect(body.stats.courses[0].course).toBe('skills-craft');
+    expect(body.stats.courses[0].total).toBe(2);
+    expect(body.machine.cpus).toBeGreaterThan(0);
+  });
 });
 
 describe('createDashboardServer with token', () => {

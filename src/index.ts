@@ -7,16 +7,26 @@ export {
   parseVideoCommand,
   buildVideoPrompt,
   extractResultPath,
+  extractRenderTarget,
+  buildOutputName,
+  slugify,
+  buildPlannerPrompt,
+  extractEnqueues,
   formatQueueList,
+  formatQueueStatus,
   mkiHelpText,
   processNextJob,
   initVideoQueue,
 } from './queue.js';
+
+export type { WorkerOptions, PlannedChild } from './queue.js';
 
 export type {
   VideoJob,
   EnqueueInput,
   QueueStore,
   QueueDeps,
+  QueueStats,
+  CourseStat,
   ParsedCommand,
 } from './types.js';

@@ -7,7 +7,7 @@ import path from 'node:path';
 import { initVideoQueue } from './queue.js';
 import { SqliteQueueStore } from './sqlite-store.js';
 import { createDashboardServer } from './dashboard.js';
-import { cmdAdd, cmdFila, cmdCancel, optVal, makeDefaultDeps, usage } from './cli-lib.js';
+import { cmdAdd, cmdPlan, cmdFila, cmdCancel, cmdStats, cmdStatus, cmdGet, optVal, makeDefaultDeps, usage } from './cli-lib.js';
 
 const DB = process.env.MKIVIDEOS_DB || path.resolve('mkivideos.db');
 
@@ -20,6 +20,10 @@ function main(): void {
       console.log(cmdAdd(store, rest.join(' ')));
       break;
 
+    case 'plan':
+      console.log(cmdPlan(store, rest.join(' ')));
+      break;
+
     case 'fila':
       console.log(cmdFila(store));
       break;
@@ -29,10 +33,27 @@ function main(): void {
       console.log(cmdCancel(store, Number(rest[0])));
       break;
 
+    case 'stats':
+      console.log(cmdStats(store));
+      break;
+
+    case 'status':
+      console.log(cmdStatus(store, Number(rest[0])));
+      break;
+
+    case 'get':
+      console.log(cmdGet(store, Number(rest[0])));
+      break;
+
     case 'run': {
       const swept = store.failStaleRunning();
       if (swept > 0) console.log(`(limpei ${swept} job(s) órfão(s) de um restart)`);
-      initVideoQueue(store, makeDefaultDeps());
+
+      const concurrency = Number(optVal(rest, '--concurrency') ?? process.env.MKIVIDEOS_CONCURRENCY ?? 1) || 1;
+      const renderDir = optVal(rest, '--render-dir') ?? process.env.MKIVIDEOS_RENDER_DIR ?? 'renders';
+      // daemon usa o modo background+poll (P7): agente dispara o render destacado, worker vigia o arquivo.
+      initVideoQueue(store, makeDefaultDeps(), { background: true, concurrency, renderDir });
+      console.log(`worker: background+poll · concorrência ${concurrency} · renders em "${renderDir}"`);
 
       const port = optVal(rest, '--port');
       const token = optVal(rest, '--token');

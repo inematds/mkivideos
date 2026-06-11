@@ -1,14 +1,21 @@
 # mkivideos
 
-**Motor portável de fila de vídeos** — enfileira e processa a criação de vídeos
-(skills `video-explicativo`, `videos-cursos-inema`, `video-demonstrativo`) **um por
-vez**, com notificação e painel. É **host-agnóstico** (ports & adapters): roda dentro
-de qualquer assistente "jarvis" sempre-ligado (openpcbot, openclaw, hermes, claudebot…)
-ou **standalone**, sem bot nenhum.
+**Serviço/biblioteca portável de fila de vídeos** — enfileira e processa a criação de vídeos
+(skills `video-explicativo`, `videos-cursos-inema`, `video-demonstrativo`), com notificação,
+**estatísticas** e painel. Dois modos:
 
-> Por que existe: render de vídeo (HyperFrames/FFmpeg + captura de frames no Chrome)
-> satura CPU. Rodar vários ao mesmo tempo trava a máquina. Esta fila **serializa**
-> (concorrência = 1) e organiza o disparo — você comanda, ela controla o resto.
+1. **Serviço autônomo (recomendado)** — daemon systemd próprio (banco, worker, dashboard).
+   Outros serviços (openpcbot, openclaw, hermes…) viram **clientes finos**: só **submetem** job
+   e **consultam** a fila, via **CLI** (v1) ou **HTTP** (v2). Não carregam o motor. Ver [deploy/](deploy/README.md).
+2. **Biblioteca embutida** — host-agnóstico (ports & adapters): roda dentro do processo do host
+   implementando `QueueStore` + `QueueDeps`. (Modo legado; o openpcbot migrou pro modo 1.)
+
+> Por que existe: render de vídeo (HyperFrames/FFmpeg + captura de frames no Chrome) satura CPU.
+> A fila **serializa** o disparo (concorrência configurável, default 1) — você comanda, ela controla.
+>
+> **Worker background+poll (P7):** vídeo profundo de curso = pipeline de 1–2h. Uma sessão de agente
+> não segura isso. Por job, o agente faz o **setup** e **dispara o render destacado** (emite `RENDER:`)
+> e sai; o worker **vigia o arquivo** até ficar pronto. É o que faz curso profundo **terminar** de verdade.
 
 > 📚 **Ecossistema:** a fila cobre 3 skills, mas o universo de criação de vídeo é grande —
 > **skills** (explicativo, demo, cursos, plan-editor, mdd, pixflow, remotion, 3d-animation,
@@ -31,8 +38,7 @@ ou **standalone**, sem bot nenhum.
 - [API](#api)
 - [O contrato `RESULT:`](#o-contrato-result)
 - [Comandos `/mkivideos` (no host Telegram)](#comandos-mkivideos-no-host-telegram)
-- [Integração de referência: openpcbot](#integração-de-referência-openpcbot)
-- [Portar para outro host](#portar-para-outro-host)
+- [Como outros serviços usam (integração)](#como-outros-serviços-usam-integração)
 - [Render na GPU](#render-na-gpu)
 - [Desenvolvimento](#desenvolvimento)
 - [Status e backlog](#status-e-backlog)
@@ -156,21 +162,29 @@ consultar + um daemon que processa a fila (1 por vez) com `runAgent` via `claude
 notificação no console e dashboard opcional. Sem Telegram, sem escrever cola.
 
 ```bash
-# enfileirar
+# enfileirar (--curso/--modulo agrupam nas estatísticas e no nome do arquivo P4)
 mkivideos add explicativo "Teorema de Bayes" --enviar
-mkivideos add curso https://meu-curso --vertical --pasta /home/nei/videos
+mkivideos add curso https://meu-curso --curso skills-craft --modulo t1m1-o-que-e-uma-skill
 
-# consultar / cancelar
+# PLANNER (curso → fila): mapeia e enfileira 1 job de vídeo por peça — "manda a URL e esquece"
+mkivideos plan https://meu-curso        # classifica + decompõe (landing/trilhas/módulos) em N jobs 'video'
+
+# consultar
 mkivideos fila
-mkivideos cancelar 3
+mkivideos stats              # status + por curso (X/Y) + ETA + throughput
+mkivideos status <id>        # detalhe de um job
+mkivideos get <id>           # só o caminho do .mp4 (vazio se não pronto)
+mkivideos cancelar <id>
 
-# rodar o worker (daemon) — opcionalmente com dashboard web
-mkivideos run --port 3141 --token segredo
-#   → processa a fila e serve http://localhost:3141/videos?token=segredo
+# rodar o daemon (worker background+poll + dashboard)
+mkivideos run --port 3142 --token segredo --concurrency 1 --render-dir renders
+#   → http://localhost:3142/videos?token=segredo  (fila + estatísticas + máquina)
 
-# banco: ./mkivideos.db por padrão, ou defina MKIVIDEOS_DB
-MKIVIDEOS_DB=/data/fila.db mkivideos run
+# env: MKIVIDEOS_DB (banco) · MKIVIDEOS_CONCURRENCY · MKIVIDEOS_RENDER_DIR
+MKIVIDEOS_DB=/data/fila.db MKIVIDEOS_CONCURRENCY=2 mkivideos run --port 3142
 ```
+
+> Em produção use o **systemd user unit** em [`deploy/`](deploy/README.md) (`mkivideos.service`).
 
 Pré-requisitos na máquina: `claude` CLI **logado**, as 3 skills de vídeo em `~/.claude/skills/`,
 e a stack de render (HyperFrames/FFmpeg/Chrome/TTS/GPU). Sem bin (via lib), monte os deps
@@ -205,14 +219,17 @@ Exports principais (`import { … } from 'mkivideos'`):
 | Símbolo | Tipo | O que faz |
 |---|---|---|
 | `parseVideoCommand(raw)` | `ParsedCommand` | texto do comando → `{skill,input,vertical,send,silent,dest}` ou `{ok:false,error}` |
-| `buildVideoPrompt({skill,input,vertical})` | `string` | prompt autônomo (roda a skill, render GPU+fallback, emite `RESULT:`) |
-| `extractResultPath(text)` | `string\|null` | captura o `.mp4` da última linha `RESULT:` |
+| `buildVideoPrompt({skill,input,vertical}, outPath?)` | `string` | prompt autônomo. Sem `outPath`: síncrono (`RESULT:`). Com `outPath`: background+poll (`RENDER:`) |
+| `extractResultPath(text)` | `string\|null` | captura o `.mp4` da última linha `RESULT:` (modo síncrono) |
+| `extractRenderTarget(text)` | `string\|null` | captura o alvo da última linha `RENDER:` (modo background+poll) |
+| `buildOutputName(job)` | `string` | nome de saída P4: `<curso>-<modulo>-<16\|9>.mp4` (usa course/module/opts) |
+| `slugify(s)` | `string` | slug seguro pra nome de arquivo |
 | `formatQueueList(jobs)` | `string` | render da fila ativa para `/mkivideos fila` |
 | `mkiHelpText()` | `string` | texto de ajuda (HTML) |
-| `processNextJob(store, deps)` | `Promise<void>` | processa **1** job (no-op se já houver `running`) |
-| `initVideoQueue(store, deps, intervalMs?)` | `() => void` | liga o tick; retorna `stop()` |
+| `processNextJob(store, deps, opts?)` | `Promise<void>` | processa **1** job (respeita `opts.concurrency`, `opts.background`) |
+| `initVideoQueue(store, deps, opts?)` | `() => void` | liga o tick. `opts` = `intervalMs` (number, legado) ou `{concurrency, background, renderDir, pollTimeoutMs, intervalMs}` |
 
-Tipos: `VideoJob`, `EnqueueInput`, `QueueStore`, `QueueDeps`, `ParsedCommand`.
+Tipos: `VideoJob` (+ `course`/`module`/`render_target`), `EnqueueInput`, `QueueStore` (+ `runningCount`/`listRunning`/`setRenderTarget`/`stats`), `QueueDeps` (+ `waitForFile?`), `QueueStats`, `WorkerOptions`, `ParsedCommand`.
 
 Store default (`import { SqliteQueueStore } from 'mkivideos/sqlite-store'`): implementa
 `QueueStore` com `better-sqlite3`. Construtor: `new SqliteQueueStore(path = ':memory:')`.
@@ -261,43 +278,52 @@ Comando único com subcomandos (use `/mkivideos help` para ver tudo):
 
 ---
 
-## Integração de referência: openpcbot
+## Como outros serviços usam (integração)
 
-O [openpcbot](https://github.com/inematds/openpcbot) é o host de produção (DGX, sempre
-ligado). Ele **importa este pacote** e fornece os adaptadores:
+mkivideos roda como **serviço autônomo** (`mkivideos run`, daemon systemd — ver [deploy/](deploy/README.md)).
+Qualquer outro serviço fala com ele de três jeitos:
 
-- **`QueueStore`** sobre o SQLite próprio dele (a tabela `video_jobs` no mesmo banco das
-  outras features) — em vez do `SqliteQueueStore`.
-- **`QueueDeps.runAgent`** via Claude Agent SDK (`runAgent(prompt, undefined, …)` → spawna
-  a sessão Claude Code autônoma).
-- **`sendMessage`/`sendDocument`** via grammy (Telegram); **`moveVideo`** via `fs`.
-- Comando `/mkivideos` (grammy) + painel `/videos` (Hono na :3141).
+### (A) Cliente CLI — v1 (recomendado, mesma máquina)
 
-### Acoplamento: ligado no fonte, independente no runtime
+O serviço cliente shella o binário `mkivideos` contra o **banco compartilhado** (`MKIVIDEOS_DB`).
+É o padrão usado pelo openpcbot — um wrapper fino `mki.sh` (espelha o `vox.sh` do inemavox):
 
-- O openpcbot **importa** o motor por **git tag pinada** (`git+ssh://…/mkivideos.git#v0.1.0`).
-  O npm instala uma **cópia real** dessa tag em `node_modules` (não symlink) e roda o `prepare` (build).
-- **Versão fixada (pinned):** o openpcbot fica preso à `v0.1.0`. Melhoria aqui só entra quando se
-  publica uma **nova tag** e ele roda `npm update mkivideos` + rebuild — sob comando.
-- **Runtime independente:** o openpcbot **não depende do folder local** `mkivideos`; usa a cópia
-  instalada da tag. Mover/apagar este repo não derruba o bot.
+```bash
+mki.sh add curso <link> --curso skills-craft --modulo t1m1-o-que-e-uma-skill   # submete
+mki.sh fila            # lista running + queued
+mki.sh stats           # status + por curso (X/Y) + ETA + throughput
+mki.sh status <id>     # detalhe de um job
+mki.sh get <id>        # caminho do .mp4 (vazio se não pronto)
+mki.sh cancelar <id>
+mki.sh ping            # daemon vivo?
+```
 
-> Trade-off honesto: com `file:../mkivideos` (symlink) NÃO há pinning nem independência — o host lê o
-> `dist/` vivo do folder. Por isso a integração de produção usa a **git tag**.
+`add`/consultas funcionam só com o binário + DB; quem **processa** é o daemon (`mkivideos run`).
 
----
+### (B) Cliente HTTP — v2 (planejado, máquinas diferentes)
 
-## Portar para outro host
+O daemon já expõe o dashboard + JSON read-only:
+`GET /api/video-jobs`, `GET /api/stats`, `POST /api/video-jobs/:id/cancel` (na `--port`, com `?token=`).
+**Falta** (v2) o `POST /jobs` de escrita pra submeter por HTTP sem CLI. Aí clientes em outra máquina
+(ou sem shell) submetem por rede.
 
-Para rodar em openclaw / hermes / claudebot / etc., implemente as duas portas:
+### (C) Biblioteca embutida — ports & adapters (modo legado)
+
+Pra rodar o motor **dentro** do processo (sem daemon separado), implemente as duas portas e suba o tick:
 
 1. **`QueueStore`** — sobre o DB do host (ou use `SqliteQueueStore`).
-2. **`QueueDeps`** — `runAgent` (como o host spawna o Claude Code), `sendMessage`,
-   `sendDocument`, `moveVideo`.
-3. Registre o comando `/mkivideos` chamando `parseVideoCommand` + `store.enqueue`.
-4. Suba `initVideoQueue(store, deps)` no boot (e `store.failStaleRunning()` antes).
+2. **`QueueDeps`** — `runAgent`, `sendMessage`, `sendDocument`, `moveVideo` (+ `waitForFile` p/ background+poll).
+3. Registre o comando chamando `parseVideoCommand` + `store.enqueue`.
+4. `initVideoQueue(store, deps, { concurrency, background: true })` no boot (e `store.failStaleRunning()` antes).
 
-O núcleo não muda. Você escreve só as **bordas** — tipicamente algumas dezenas de linhas.
+O núcleo não muda — você escreve só as **bordas**.
+
+### Quem migrou: openpcbot (cliente fino)
+
+O [openpcbot](https://github.com/inematds/openpcbot) **deixou de importar o motor** (modo C → modo A):
+removeu `initVideoQueue`/`video-store.ts`/funções de fila e a dependência `mkivideos`. O comando
+`/mkivideos` e o painel `/videos` agora **chamam o daemon** via `skills/mkivideos/mki.sh` (CLI) e
+proxy HTTP (`/api/video-jobs` → `:3142`). O bot ficou mais leve — não segura render nem memória da fila.
 
 ---
 
@@ -345,12 +371,21 @@ docs/superpowers/   # spec + planos de design
 - ✅ **v1**: fila `/mkivideos` em produção no openpcbot (FIFO, 1 por vez, painel, `--pasta`,
   recuperação de job órfão no boot).
 - ✅ **Fase 2** (v0.1.0): motor extraído para este pacote; openpcbot importa (git tag pinada).
-- ✅ **v0.2.0**: **runner standalone** (bin `mkivideos` add/fila/cancelar/run) + **dashboard
-  portável** (`mkivideos/dashboard`).
+- ✅ **v0.2.0**: **runner standalone** (bin `mkivideos`) + **dashboard portável** (`mkivideos/dashboard`).
+- ✅ **v0.3.0 (serviço autônomo):**
+  - **Worker background+poll (P7)** — agente dispara render destacado (`RENDER:`), worker vigia o arquivo (`waitForFile`).
+  - **Concorrência configurável** (`MKIVIDEOS_CONCURRENCY` / `--concurrency`).
+  - **Estatísticas** — `store.stats()`, dashboard com por-curso (X/Y), processando×espera, ETA, throughput, máquina; CLI `stats`/`status`/`get`.
+  - **Metadados course/module** + naming P4 (`buildOutputName` → `<curso>-<modulo>-<16|9>.mp4`); `add --curso/--modulo`.
+  - **systemd** `deploy/mkivideos.service`; **openpcbot virou cliente fino** (CLI, sem motor in-process).
+- ✅ **v0.4.0 (planner / decomposição):** job `kind: 'plan'` — o agente classifica o input, escolhe a skill,
+  mapeia a estrutura (curso → módulos) e **enfileira 1 job `video` por peça** (landing/trilhas/módulos),
+  cada um linkado por `parent_id`. Resolve o curso autônomo sem cair no P7 (1 job = 1 etapa). CLI `mkivideos plan <url>`.
+  *Worker e parsing testados; o comportamento do agente planner ao vivo (mapear + emitir `ENQUEUE:`) precisa de validação em produção.*
 - ⏳ **Backlog**:
-  - Notifier webhook no runner (hoje notifica no console); flags do daemon (intervalo configurável).
-  - Trava global de render (serializa até chamadas diretas das skills) via `render-gpu.sh` com lock.
-  - Prioridade / job urgente; retry automático; concorrência configurável.
-  - openpcbot adotar o dashboard portável (`mkivideos/dashboard`) ao subir pra v0.2.0.
+  - **Transporte HTTP v2** — `POST /jobs` de escrita (submeter por rede, máquinas diferentes).
+  - Notificar o cliente no done (hoje o daemon notifica no console; falta callback/webhook pro Telegram do bot).
+  - Trava global de render via lock; prioridade/retry; dropar a tabela `video_jobs` dormente do openpcbot.
+  - **Destino do job first-class:** hoje já existe `--pasta <dir|.mp4>` (move o `.mp4` no fim). Falta: tornar o destino uma opção de submissão de primeira classe (escolher pasta/mover ao enviar o job), um **default por curso** (todos os vídeos do curso caem na mesma pasta) e expor isso no cliente (`mki.sh`)/painel.
 
 Spec e planos detalhados em [`docs/superpowers/`](docs/superpowers/).

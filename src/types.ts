@@ -6,6 +6,15 @@ export interface VideoJob {
   id: number;
   skill: 'explicativo' | 'curso' | 'demo';
   input: string;
+  /**
+   * 'video' = produz 1 vídeo (default, modelo 1 job = 1 render).
+   * 'plan'  = job PLANNER: o agente classifica o input, escolhe a skill, mapeia a estrutura
+   *           (ex.: curso → módulos) e ENFILEIRA 1 job 'video' por peça. Não renderiza nada.
+   *           Resolve o "manda a URL do curso e esquece" sem cair no P7 (1 job = 1 etapa).
+   */
+  kind: 'video' | 'plan';
+  /** id do job 'plan' que gerou este job (NULL se foi enfileirado direto). */
+  parent_id: number | null;
   /** JSON: { vertical?: boolean; dest?: string } */
   opts: string | null;
   status: 'queued' | 'running' | 'done' | 'failed' | 'canceled';
@@ -15,6 +24,12 @@ export interface VideoJob {
   /** 0 | 1 — anexar o .mp4 ao terminar */
   send_video: number;
   chat_id: string | null;
+  /** Rótulo do curso pra agrupar/estatísticas no painel (ex.: "skills-craft"). */
+  course: string | null;
+  /** Rótulo do módulo/parte (ex.: "1.1 — O que é uma Agent Skill" ou "landing"). */
+  module: string | null;
+  /** Caminho-alvo do .mp4 que o worker vigia no modo background+poll. */
+  render_target: string | null;
   created_at: number;
   started_at: number | null;
   finished_at: number | null;
@@ -27,6 +42,35 @@ export interface EnqueueInput {
   notify: VideoJob['notify'];
   sendVideo: boolean;
   chatId: string | null;
+  /** Opcional: rótulo do curso pra agrupamento/estatísticas. */
+  course?: string | null;
+  /** Opcional: rótulo do módulo/parte. */
+  module?: string | null;
+  /** 'video' (default) ou 'plan' (job planner que decompõe). */
+  kind?: VideoJob['kind'];
+  /** Opcional: id do job planner que gerou este. */
+  parentId?: number | null;
+}
+
+/** Estatísticas agregadas da fila (painel + CLI). */
+export interface CourseStat {
+  course: string;
+  total: number;
+  done: number;
+  failed: number;
+  running: number;
+  queued: number;
+  canceled: number;
+}
+export interface QueueStats {
+  byStatus: Record<VideoJob['status'], number>;
+  courses: CourseStat[];
+  /** Tempo médio (s) entre started_at e finished_at dos jobs 'done'. Null se nenhum. */
+  avgRenderSeconds: number | null;
+  /** Jobs 'done' por hora nas últimas 24h. Null se nenhum. */
+  throughputPerHour: number | null;
+  /** ETA (s) pra esvaziar a fila = queued × avgRenderSeconds / concorrência. Null se desconhecido. */
+  etaSeconds: number | null;
 }
 
 /**
@@ -37,14 +81,22 @@ export interface QueueStore {
   enqueue(job: EnqueueInput): number;
   /** Próximo job 'queued' (FIFO: created_at, id) ou null. */
   getNext(): VideoJob | null;
-  /** Job 'running' atual ou null (a trava de concorrência = 1). */
+  /** Primeiro job 'running' (compat; com concorrência >1 prefira listRunning). */
   getRunning(): VideoJob | null;
+  /** Quantos jobs estão 'running' agora (trava de concorrência). */
+  runningCount(): number;
+  /** Todos os jobs 'running' (pra painel processando×espera). */
+  listRunning(): VideoJob[];
   markRunning(id: number): void;
+  /** Grava o caminho-alvo do render que o worker vai vigiar (modo background+poll). */
+  setRenderTarget(id: number, target: string): void;
   markDone(id: number, resultPath: string): void;
   markFailed(id: number, error: string): void;
   /** Cancela só se ainda 'queued'. Retorna se mudou alguma linha. */
   cancel(id: number): boolean;
   list(limit?: number): VideoJob[];
+  /** Estatísticas agregadas (status, por curso, médias). */
+  stats(): QueueStats;
   /** No boot: marca jobs 'running' órfãos (crash/restart) como 'failed'. Retorna quantos. */
   failStaleRunning(): number;
 }
@@ -57,8 +109,14 @@ export interface QueueDeps {
   sendDocument: (chatId: string, path: string) => Promise<void>;
   /** Move o .mp4 renderizado para um destino e devolve o caminho final. */
   moveVideo: (src: string, dest: string) => Promise<string>;
+  /**
+   * Modo background+poll (P7): espera o arquivo de render existir e estabilizar
+   * (tamanho parado por alguns segundos). Resolve true quando pronto, false no timeout.
+   * Default implementado no host; em testes é injetado.
+   */
+  waitForFile?: (path: string, opts?: { timeoutMs?: number; stableMs?: number; pollMs?: number }) => Promise<boolean>;
 }
 
 export type ParsedCommand =
-  | { ok: true; skill: VideoJob['skill']; input: string; vertical: boolean; send: boolean; silent: boolean; dest?: string }
+  | { ok: true; skill: VideoJob['skill']; input: string; vertical: boolean; send: boolean; silent: boolean; dest?: string; course?: string; module?: string }
   | { ok: false; error: string };

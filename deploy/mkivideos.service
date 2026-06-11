@@ -1,0 +1,18 @@
+[Unit]
+Description=mkivideos — fila de vídeos (daemon background+poll + dashboard)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projetos/mkivideos
+# PATH explícito: systemd user unit não herda o PATH do shell; precisa achar `node`, `npx`, `claude`, `ffmpeg`.
+Environment=PATH=%h/.local/bin:%h/.nvm/versions/node/current/bin:/usr/local/bin:/usr/bin:/bin
+Environment=MKIVIDEOS_DB=%h/projetos/mkivideos/mkivideos.db
+Environment=MKIVIDEOS_CONCURRENCY=1
+Environment=MKIVIDEOS_RENDER_DIR=%h/projetos/mkivideos/renders
+ExecStart=/usr/bin/node %h/projetos/mkivideos/dist/cli.js run --port 3142 --token inemadash
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

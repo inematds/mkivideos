@@ -5,6 +5,7 @@ import {
   buildVideoPrompt,
   extractResultPath,
   formatQueueList,
+  formatQueueStatus,
   mkiHelpText,
   processNextJob,
 } from './queue.js';
@@ -40,6 +41,14 @@ describe('parseVideoCommand', () => {
 
   it('dest is undefined when --pasta absent', () => {
     expect((parseVideoCommand('explicativo Bayes') as any).dest).toBeUndefined();
+  });
+
+  it('parses --curso e --modulo e tira do input', () => {
+    const r = parseVideoCommand('curso http://x --curso skills-craft --modulo t1m1-o-que-e --silencioso') as any;
+    expect(r.input).toBe('http://x');
+    expect(r.course).toBe('skills-craft');
+    expect(r.module).toBe('t1m1-o-que-e');
+    expect(r.silent).toBe(true);
   });
 
   it('--pasta no fim sem valor não quebra', () => {
@@ -96,9 +105,10 @@ describe('extractResultPath', () => {
 });
 
 const j = (over: Partial<VideoJob>): VideoJob => ({
-  id: 1, skill: 'explicativo', input: 'X', opts: null, status: 'queued',
+  id: 1, skill: 'explicativo', input: 'X', kind: 'video', parent_id: null, opts: null, status: 'queued',
   result_path: null, error: null, notify: 'sempre', send_video: 0,
-  chat_id: '1', created_at: 0, started_at: null, finished_at: null, ...over,
+  chat_id: '1', course: null, module: null, render_target: null,
+  created_at: 0, started_at: null, finished_at: null, ...over,
 });
 
 describe('formatQueueList', () => {
@@ -115,6 +125,28 @@ describe('formatQueueList', () => {
   });
   it('ignores done/failed/canceled', () => {
     expect(formatQueueList([j({ id: 9, status: 'done' })])).toContain('vazia');
+  });
+});
+
+describe('formatQueueStatus (rico)', () => {
+  it('agrupa por curso com X/Y e separa processando × espera', () => {
+    const out = formatQueueStatus([
+      j({ id: 1, status: 'done', course: 'make', module: 't1m1' }),
+      j({ id: 2, status: 'running', course: 'make', module: 't1m2' }),
+      j({ id: 3, status: 'queued', course: 'make', module: 't1m3' }),
+      j({ id: 4, status: 'done', course: 'n8n', module: 'landing' }),
+    ]);
+    expect(out).toContain('Por curso');
+    expect(out).toContain('make: 1/3 feito');
+    expect(out).toContain('n8n: 1/1 feito');
+    expect(out).toContain('▶️ Processando agora');
+    expect(out).toContain('#2');           // running
+    expect(out).toContain('Na espera (1)');
+    expect(out).toContain('#3');           // queued
+    expect(out.indexOf('#2')).toBeLessThan(out.indexOf('Na espera')); // running antes da espera
+  });
+  it('fila vazia', () => {
+    expect(formatQueueStatus([])).toContain('vazia');
   });
 });
 
