@@ -13,6 +13,7 @@ const SKILL_SLUGS: Record<VideoJob['skill'], string> = {
   // (ver buildInemavoxPrompt). Entradas aqui só por completude do Record.
   transcrever: 'inemavox/transcrever_v1.py',
   dublar: 'inemavox/dublar_pro_v5.py',
+  reel: 'reel-edita-inema',
 };
 
 const SKILL_LABEL: Record<VideoJob['skill'], string> = {
@@ -21,6 +22,7 @@ const SKILL_LABEL: Record<VideoJob['skill'], string> = {
   demo: 'demonstrativo',
   transcrever: 'transcrição',
   dublar: 'dublagem',
+  reel: 'reel',
 };
 
 /**
@@ -35,6 +37,7 @@ export const SKILL_ARTIFACT_EXTS: Record<VideoJob['skill'], string[]> = {
   demo: ['mp4'],
   dublar: ['mp4'],
   transcrever: ['txt', 'srt'],
+  reel: ['mp4'],
 };
 
 const INEMAVOX_SKILLS = new Set<VideoJob['skill']>(['transcrever', 'dublar']);
@@ -49,18 +52,18 @@ export function isFileTarget(p: string): boolean {
   return /\.[A-Za-z0-9]{1,5}$/.test(p);
 }
 
-const ALL_SKILLS = ['explicativo', 'curso', 'demo', 'transcrever', 'dublar'] as const;
+const ALL_SKILLS = ['explicativo', 'curso', 'demo', 'transcrever', 'dublar', 'reel'] as const;
 
 /** Parseia o texto após "/mkivideos" (o caso de enfileirar). */
 export function parseVideoCommand(raw: string): ParsedCommand {
   const tokens = raw.trim().split(/\s+/).filter(Boolean);
   if (tokens.length === 0) {
-    return { ok: false, error: 'Uso: /mkivideos <explicativo|curso|demo|transcrever|dublar> <assunto/link> [--vertical] [--enviar] [--silencioso] [--pasta <caminho>]' };
+    return { ok: false, error: 'Uso: /mkivideos <explicativo|curso|demo|transcrever|dublar|reel> <assunto/link> [--vertical] [--enviar] [--silencioso] [--pasta <caminho>]' };
   }
 
   const skillToken = tokens[0].toLowerCase();
   if (!(ALL_SKILLS as readonly string[]).includes(skillToken)) {
-    return { ok: false, error: `Skill inválida "${skillToken}". Use: explicativo, curso, demo, transcrever ou dublar.` };
+    return { ok: false, error: `Skill inválida "${skillToken}". Use: explicativo, curso, demo, transcrever, dublar ou reel.` };
   }
   const skill = skillToken as VideoJob['skill'];
 
@@ -164,6 +167,46 @@ export function buildInemavoxPrompt(
     ...base,
     ...cmd,
     `Ao terminar com sucesso, sua ÚLTIMA linha deve ser exatamente: \`RESULT: <caminho absoluto do artefato final (${artifact})>\`.`,
+    'Se falhar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
+  ].join('\n');
+}
+
+/**
+ * Prompt autônomo pra 'reel': usa a skill `reel-edita-inema` (READ-ONLY) pra montar um reel 9:16
+ * empilhado (topo headline · meio avatar · base explicativo) a partir do MP4 do avatar.
+ * `job.input` é o caminho absoluto do avatar (possivelmente com instruções extra em texto livre
+ * anexadas pelo bot, ex.: "modo visuais", "componha com o explicativo em <path>") — é passado
+ * VERBATIM pro prompt, sem parsear: quem decide o modo (1 compor / 2 gerar explicativo / 3 gerar
+ * visuais) é a própria skill, lendo o que foi dado. Quando só o avatar é passado, a skill já sabe
+ * gerar o explicativo sozinha (Modo 2, chamando video-explicativo) — não reimplementamos isso aqui.
+ * A skill grava a saída na convenção dela (~/projetos/output/<slug>/…); o job então copia o .mp4
+ * final pro `outPath` que o worker vigia. Mesmo contrato RENDER:/RESULT:/ERRO: + marcador `.err`
+ * dos outros builders.
+ */
+export function buildReelPrompt(
+  job: { skill: 'reel'; input: string },
+  outPath?: string,
+): string {
+  const base = [
+    `Use a skill \`reel-edita-inema\` (~/.claude/skills/reel-edita-inema, SOMENTE LEITURA — não edite nada lá dentro) para montar um REEL 9:16 empilhado INEMA (topo headline · meio avatar · base explicativo) a partir de: "${job.input}".`,
+    'Trate essa string exatamente como veio — pode ser só o caminho do avatar MP4, ou o caminho seguido de instruções extra em texto livre (ex.: "modo visuais", "componha com o explicativo em <path>"). A própria skill decide o modo (1 compor / 2 gerar o explicativo a partir do avatar / 3 gerar visuais) a partir do que foi dado — NÃO decida isso por conta própria, NÃO chame video-explicativo diretamente: é a skill reel-edita-inema quem orquestra tudo isso (inclusive o corte, o revisor e a composição).',
+    'Rode de forma AUTÔNOMA, sem pedir confirmação nem qualquer interação — siga o `control.autonomia = decide-e-mostra` da própria skill.',
+    'A skill grava o resultado final em `~/projetos/output/<slug-do-reel>/` (a convenção de saída dela — NÃO force outro diretório).',
+  ];
+  if (outPath) {
+    return [
+      ...base,
+      `Depois que a skill terminar (render final aprovado pelo revisor), copie o .mp4 final EXATAMENTE para: ${outPath}`,
+      `Faça TODO o trabalho (todas as fases da skill, incluindo o revisor) e DISPARE em BACKGROUND DESTACADO, envolvendo TUDO num \`bash -c '<seus comandos/agente> || touch "${outPath}.err"'\` — se qualquer etapa morrer, isso cria o marcador de falha que o serviço vigia. Ex.: \`nohup bash -c '<pipeline completo terminando na cópia para ${outPath}> || touch "${outPath}.err"' >"${outPath}.log" 2>&1 &\``,
+      `NÃO pule o \`|| touch "${outPath}.err"\` — é isso que evita o serviço ficar esperando até 2h por um processo que já morreu (reel é um job LONGO: corte + geração de explicativo/visuais + composição + revisor).`,
+      `NÃO espere terminar. Assim que disparar, sua ÚLTIMA linha deve ser exatamente: \`RENDER: ${outPath}\``,
+      `O serviço vai vigiar TANTO o arquivo final (${outPath}) QUANTO o marcador de falha (${outPath}.err) — o que aparecer primeiro decide. Log completo fica em ${outPath}.log. Você pode encerrar a sessão logo após disparar.`,
+      'Se NÃO conseguir nem disparar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
+    ].join('\n');
+  }
+  return [
+    ...base,
+    'Ao terminar com sucesso, sua ÚLTIMA linha deve ser exatamente: `RESULT: <caminho absoluto do .mp4 final do reel>`.',
     'Se falhar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
   ].join('\n');
 }
@@ -339,6 +382,9 @@ export function mkiHelpText(): string {
     '  /mkivideos transcrever &lt;link&gt;  baixa + transcreve local (Whisper) → .txt/.srt',
     '  /mkivideos dublar &lt;link&gt;       baixa + dubla com IA → .mp4',
     '',
+    '<b>Reel (skill reel-edita-inema, mesma fila GPU):</b>',
+    '  /mkivideos reel &lt;caminho do avatar.mp4&gt;  monta reel 9:16 empilhado (topo headline · meio avatar · base explicativo) → .mp4',
+    '',
     '<b>Flags (no fim):</b>',
     '  --vertical    gera 9:16 (Shorts/Reels) em vez do padrão — só nos skills de vídeo',
     '  --enviar      anexa o arquivo final (.mp4/.txt/.srt) no Telegram ao terminar',
@@ -432,10 +478,11 @@ async function runClaimedJob(store: QueueStore, deps: QueueDeps, job: VideoJob, 
     const o = parseOpts(job.opts);
     const background = opts.background ?? false;
     const exts = SKILL_ARTIFACT_EXTS[job.skill];
-    const buildPrompt = (outPath?: string): string =>
-      isInemavoxSkill(job.skill)
-        ? buildInemavoxPrompt({ skill: job.skill, input: job.input }, outPath)
-        : buildVideoPrompt({ skill: job.skill, input: job.input, vertical: !!o.vertical }, outPath);
+    const buildPrompt = (outPath?: string): string => {
+      if (isInemavoxSkill(job.skill)) return buildInemavoxPrompt({ skill: job.skill, input: job.input }, outPath);
+      if (job.skill === 'reel') return buildReelPrompt({ skill: 'reel', input: job.input }, outPath);
+      return buildVideoPrompt({ skill: job.skill, input: job.input, vertical: !!o.vertical }, outPath);
+    };
 
     if (background) {
       // alvo determinístico que o worker vai vigiar

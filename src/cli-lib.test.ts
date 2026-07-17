@@ -32,6 +32,11 @@ describe('cli-lib', () => {
       expect(cmdAdd(store, 'dublar https://y')).toMatch(/enfileirado #2 \(dublar\)/);
       expect(store.list()).toHaveLength(2);
     });
+
+    it('enqueues reel com o caminho do avatar como input', () => {
+      expect(cmdAdd(store, 'reel /home/nei/avatares/joao.mp4')).toMatch(/enfileirado #1 \(reel\)/);
+      expect(store.getNext()?.input).toBe('/home/nei/avatares/joao.mp4');
+    });
   });
 
   describe('--pasta com destino .txt (moveVideo do makeDefaultDeps)', () => {

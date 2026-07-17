@@ -4,6 +4,7 @@ import {
   parseVideoCommand,
   buildVideoPrompt,
   buildInemavoxPrompt,
+  buildReelPrompt,
   extractResultPath,
   extractRenderTarget,
   isFileTarget,
@@ -11,6 +12,7 @@ import {
   formatQueueStatus,
   mkiHelpText,
   processNextJob,
+  SKILL_ARTIFACT_EXTS,
 } from './queue.js';
 import { SqliteQueueStore } from './sqlite-store.js';
 import type { QueueDeps, VideoJob } from './types.js';
@@ -74,6 +76,23 @@ describe('parseVideoCommand', () => {
   it('ainda rejeita lixo mesmo com transcrever/dublar aceitos', () => {
     expect(parseVideoCommand('transcrevendo bar')).toEqual({ ok: false, error: expect.stringContaining('explicativo') });
   });
+
+  it('accepts reel (delega pra skill reel-edita-inema)', () => {
+    const r = parseVideoCommand('reel /home/nei/avatares/joao.mp4') as any;
+    expect(r.ok).toBe(true);
+    expect(r.skill).toBe('reel');
+    expect(r.input).toBe('/home/nei/avatares/joao.mp4');
+  });
+
+  it('reel aceita instruções extra anexadas ao caminho do avatar', () => {
+    const r = parseVideoCommand('reel /home/nei/avatares/joao.mp4 modo visuais') as any;
+    expect(r.ok).toBe(true);
+    expect(r.input).toBe('/home/nei/avatares/joao.mp4 modo visuais');
+  });
+
+  it('ainda rejeita lixo mesmo com reel aceito', () => {
+    expect(parseVideoCommand('reelzinho bar')).toEqual({ ok: false, error: expect.stringContaining('explicativo') });
+  });
 });
 
 describe('buildInemavoxPrompt', () => {
@@ -98,6 +117,36 @@ describe('buildInemavoxPrompt', () => {
     const p = buildInemavoxPrompt({ skill: 'transcrever', input: 'https://x' }, '/out/t1.txt');
     expect(p).toContain('RENDER: /out/t1.txt');
     expect(p).not.toContain('RESULT:');
+  });
+});
+
+describe('buildReelPrompt', () => {
+  it('cita a skill reel-edita-inema (não video-explicativo direto) e o caminho do avatar', () => {
+    const p = buildReelPrompt({ skill: 'reel', input: '/home/nei/avatares/joao.mp4' });
+    expect(p).toContain('reel-edita-inema');
+    expect(p).toContain('/home/nei/avatares/joao.mp4');
+    expect(p).not.toContain('Use a skill `video-explicativo`');
+    expect(p).toContain('RESULT:');
+  });
+
+  it('sem outPath: contrato RESULT síncrono', () => {
+    const p = buildReelPrompt({ skill: 'reel', input: '/home/nei/avatares/joao.mp4' });
+    expect(p).toContain('RESULT:');
+    expect(p).not.toContain('RENDER:');
+  });
+
+  it('com outPath: emite RENDER: (background+poll) e carrega o marcador de falha .err', () => {
+    const p = buildReelPrompt({ skill: 'reel', input: '/home/nei/avatares/joao.mp4' }, '/renders/reel-1-9.mp4');
+    expect(p).toContain('RENDER: /renders/reel-1-9.mp4');
+    expect(p).not.toContain('RESULT:');
+    expect(p).toContain('/renders/reel-1-9.mp4.err');
+    expect(p).toContain('touch');
+  });
+
+  it('SKILL_ARTIFACT_EXTS.reel é .mp4 e o RESULT/RENDER default (sem exts custom) já aceita', () => {
+    expect(SKILL_ARTIFACT_EXTS.reel).toEqual(['mp4']);
+    expect(extractResultPath('ok\nRESULT: /out/reel-final.mp4')).toBe('/out/reel-final.mp4');
+    expect(extractRenderTarget('ok\nRENDER: /renders/reel-1-9.mp4')).toBe('/renders/reel-1-9.mp4');
   });
 });
 
