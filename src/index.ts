@@ -29,4 +29,5 @@ export type {
   QueueStats,
   CourseStat,
   ParsedCommand,
+  WaitForFileResult,
 } from './types.js';

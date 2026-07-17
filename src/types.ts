@@ -107,6 +107,21 @@ export interface QueueStore {
   failStaleRunning(): number;
 }
 
+/**
+ * Resultado de `waitForFile` — distingue os 3 desfechos do modo background+poll:
+ *   - `ok: true`                        → arquivo alvo apareceu e estabilizou (sucesso).
+ *   - `ok: false, failedMarker: true`   → apareceu o marcador `<alvo>.err` ANTES do alvo:
+ *     o passo destacado morreu (crash, comando falhou) — falha RÁPIDA, não espera o timeout.
+ *   - `ok: false, failedMarker: false`  → nem alvo nem marcador apareceram até o timeout
+ *     (processo pendurado mas vivo, ou lento demais) — o backstop de sempre.
+ */
+export interface WaitForFileResult {
+  ok: boolean;
+  failedMarker: boolean;
+  /** Trecho final do log do passo destacado (`<alvo>.log`), se existir — pra diagnóstico. */
+  logExcerpt?: string;
+}
+
 /** Porta de IO — efeitos colaterais específicos do host. */
 export interface QueueDeps {
   /** Spawna o agente autônomo (ex.: Claude Code) com o prompt e devolve o texto final. */
@@ -117,10 +132,12 @@ export interface QueueDeps {
   moveVideo: (src: string, dest: string) => Promise<string>;
   /**
    * Modo background+poll (P7): espera o arquivo de render existir e estabilizar
-   * (tamanho parado por alguns segundos). Resolve true quando pronto, false no timeout.
-   * Default implementado no host; em testes é injetado.
+   * (tamanho parado por alguns segundos), OU o marcador de falha `<path>.err` aparecer
+   * (o prompt do agente dispara o comando real como `<cmd> || touch "<path>.err"`, então
+   * um `.err` significa que o passo destacado morreu — falha rápida em vez de esperar o
+   * timeout inteiro). Default implementado no host; em testes é injetado.
    */
-  waitForFile?: (path: string, opts?: { timeoutMs?: number; stableMs?: number; pollMs?: number }) => Promise<boolean>;
+  waitForFile?: (path: string, opts?: { timeoutMs?: number; stableMs?: number; pollMs?: number }) => Promise<WaitForFileResult>;
 }
 
 export type ParsedCommand =

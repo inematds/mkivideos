@@ -3,6 +3,7 @@
 // um QueueStore (persistência) e QueueDeps (IO) injetados.
 
 import type { ParsedCommand, QueueDeps, QueueStore, VideoJob } from './types.js';
+import { condenseError } from './errors.js';
 
 const SKILL_SLUGS: Record<VideoJob['skill'], string> = {
   explicativo: 'video-explicativo',
@@ -107,9 +108,10 @@ export function buildVideoPrompt(
     return [
       ...base,
       `Faça TODO o setup (conteúdo → spec → narração/TTS → build do index.html).`,
-      `Depois DISPARE o render em BACKGROUND DESTACADO (ex.: \`nohup npx hyperframes render --quality high --output "${outPath}" >/tmp/mki-render-$$.log 2>&1 &\`), gravando EXATAMENTE em: ${outPath}`,
+      `Depois DISPARE o render em BACKGROUND DESTACADO, envolvendo o comando REAL num \`bash -c '... || touch "<alvo>.err"'\` — se o render morrer, isso cria o marcador de falha que o serviço vigia. Ex.: \`nohup bash -c 'npx hyperframes render --quality high --output "${outPath}" || touch "${outPath}.err"' >"${outPath}.log" 2>&1 &\`, gravando EXATAMENTE em: ${outPath}`,
+      `NÃO pule o \`|| touch "${outPath}.err"\` — é isso que evita o serviço ficar esperando até 2h por um processo que já morreu.`,
       `NÃO espere o render terminar. Assim que ele estiver disparado, sua ÚLTIMA linha deve ser exatamente: \`RENDER: ${outPath}\``,
-      'O serviço vai vigiar esse arquivo até ficar pronto — você pode encerrar a sessão logo após disparar.',
+      `O serviço vai vigiar TANTO o arquivo final (${outPath}) QUANTO o marcador de falha (${outPath}.err) — o que aparecer primeiro decide. Log completo do passo destacado fica em ${outPath}.log. Você pode encerrar a sessão logo após disparar.`,
       'Se NÃO conseguir nem disparar o render, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
     ].join('\n');
   }
@@ -151,9 +153,10 @@ export function buildInemavoxPrompt(
     return [
       ...base,
       ...cmd,
-      `Faça TODO o trabalho (download + transcrição/dublagem) e DISPARE em BACKGROUND DESTACADO (ex.: \`nohup bash -c '...' >/tmp/mki-${job.skill}-$$.log 2>&1 &\`), garantindo que o artefato final (${artifact}) fique gravado EXATAMENTE em: ${outPath}`,
+      `Faça TODO o trabalho (download + transcrição/dublagem) e DISPARE em BACKGROUND DESTACADO, envolvendo TUDO num \`bash -c '<seus comandos> || touch "<alvo>.err"'\` — se a etapa morrer (ex.: yt-dlp falhar), isso cria o marcador de falha que o serviço vigia. Ex.: \`nohup bash -c '<seus comandos aqui> || touch "${outPath}.err"' >"${outPath}.log" 2>&1 &\`, garantindo que o artefato final (${artifact}) fique gravado EXATAMENTE em: ${outPath}`,
+      `NÃO pule o \`|| touch "${outPath}.err"\` — é isso que evita o serviço ficar esperando até 2h por um processo que já morreu.`,
       `NÃO espere terminar. Assim que disparar, sua ÚLTIMA linha deve ser exatamente: \`RENDER: ${outPath}\``,
-      'O serviço vai vigiar esse arquivo até ficar pronto — você pode encerrar a sessão logo após disparar.',
+      `O serviço vai vigiar TANTO o artefato final (${outPath}) QUANTO o marcador de falha (${outPath}.err) — o que aparecer primeiro decide. Log completo fica em ${outPath}.log. Você pode encerrar a sessão logo após disparar.`,
       'Se NÃO conseguir nem disparar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
     ].join('\n');
   }
@@ -453,10 +456,20 @@ async function runClaimedJob(store: QueueStore, deps: QueueDeps, job: VideoJob, 
         store.markFailed(job.id, 'worker sem waitForFile (não dá pra vigiar o render em background)');
         return;
       }
-      const ok = await deps.waitForFile(rendered, { timeoutMs: opts.pollTimeoutMs, stableMs: opts.pollStableMs });
-      if (!ok) {
-        store.markFailed(job.id, `render não completou no tempo — alvo ${rendered}`);
-        if (notify) await deps.sendMessage(job.chat_id!, `❌ #${job.id} falhou: render não completou (timeout)`);
+      const wait = await deps.waitForFile(rendered, { timeoutMs: opts.pollTimeoutMs, stableMs: opts.pollStableMs });
+      if (!wait.ok) {
+        if (wait.failedMarker) {
+          // marcador <alvo>.err: o passo destacado morreu — falha RÁPIDA (não espera o timeout de 2h).
+          const reason = condenseError(
+            `passo destacado falhou (RENDER: ${rendered}) — ver log: ${rendered}.log` +
+            (wait.logExcerpt ? `\n${wait.logExcerpt}` : ''),
+          );
+          store.markFailed(job.id, reason);
+          if (notify) await deps.sendMessage(job.chat_id!, `❌ #${job.id} falhou: passo destacado morreu — ver log ${rendered}.log`);
+        } else {
+          store.markFailed(job.id, `render não completou no tempo — alvo ${rendered}`);
+          if (notify) await deps.sendMessage(job.chat_id!, `❌ #${job.id} falhou: render não completou (timeout)`);
+        }
         return;
       }
       let finalPath = rendered;

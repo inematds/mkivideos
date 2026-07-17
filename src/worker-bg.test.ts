@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import {
   buildVideoPrompt,
+  buildInemavoxPrompt,
   extractRenderTarget,
   buildOutputName,
   slugify,
@@ -51,6 +52,21 @@ describe('buildVideoPrompt (modo background+poll)', () => {
     expect(p).toContain('NÃO espere');
     expect(p).not.toContain('RESULT:');
   });
+
+  it('com outPath: instrui a convenção `|| touch <alvo>.err` pro marcador de falha', () => {
+    const p = buildVideoPrompt({ skill: 'curso', input: 'http://x', vertical: false }, '/r/v.mp4');
+    expect(p).toContain('|| touch "/r/v.mp4.err"');
+    expect(p).toContain('/r/v.mp4.log');
+  });
+});
+
+describe('buildInemavoxPrompt (modo background+poll)', () => {
+  it('com outPath: instrui a convenção `|| touch <alvo>.err` pro marcador de falha', () => {
+    const p = buildInemavoxPrompt({ skill: 'transcrever', input: 'https://x' }, '/r/mkivideo-1-16.txt');
+    expect(p).toContain('|| touch "/r/mkivideo-1-16.txt.err"');
+    expect(p).toContain('/r/mkivideo-1-16.txt.log');
+    expect(p).toContain('RENDER: /r/mkivideo-1-16.txt');
+  });
 });
 
 describe('processNextJob — background+poll', () => {
@@ -64,7 +80,7 @@ describe('processNextJob — background+poll', () => {
     sendMessage: async (_c, t) => { sent.push(t); },
     sendDocument: async () => { /* noop */ },
     moveVideo: async (src, dest) => { moved.push({ src, dest }); return dest + '/moved.mp4'; },
-    waitForFile: async (p) => { waited.push({ path: p }); return fileReady; },
+    waitForFile: async (p) => { waited.push({ path: p }); return { ok: fileReady, failedMarker: false }; },
   });
 
   const opts = { background: true, renderDir: 'renders' };
@@ -85,6 +101,26 @@ describe('processNextJob — background+poll', () => {
     const id = store.enqueue({ skill: 'curso', input: 'http://x', opts: null, notify: 'sempre', sendVideo: false, chatId: '1' });
     await processNextJob(store, deps('RENDER: /renders/x.mp4', false), opts);
     expect(store.list().find((x) => x.id === id)!.status).toBe('failed');
+  });
+
+  it('marca failed RÁPIDO (sem esperar timeout) quando aparece o marcador <alvo>.err', async () => {
+    const id = store.enqueue({ skill: 'curso', input: 'http://x', opts: null, notify: 'sempre', sendVideo: false, chatId: '1' });
+    const markerDeps: QueueDeps = {
+      runAgent: async () => ({ text: 'setup...\nRENDER: /renders/x.mp4' }),
+      sendMessage: async (_c, t) => { sent.push(t); },
+      sendDocument: async () => { /* noop */ },
+      moveVideo: async (src, dest) => { moved.push({ src, dest }); return dest + '/moved.mp4'; },
+      waitForFile: async (p) => {
+        waited.push({ path: p });
+        return { ok: false, failedMarker: true, logExcerpt: 'yt-dlp: erro ao baixar' };
+      },
+    };
+    await processNextJob(store, markerDeps, opts);
+    const job = store.list().find((x) => x.id === id)!;
+    expect(job.status).toBe('failed');
+    expect(job.error).toContain('/renders/x.mp4.log');
+    expect(job.error).toContain('yt-dlp: erro ao baixar');
+    expect(sent.some((t) => t.includes('/renders/x.mp4.log'))).toBe(true);
   });
 
   it('marca failed se o agente não dispara o render (sem RENDER:)', async () => {

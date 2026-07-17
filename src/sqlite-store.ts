@@ -6,22 +6,9 @@
 import Database from 'better-sqlite3';
 
 import type { CourseStat, EnqueueInput, QueueStats, QueueStore, VideoJob } from './types.js';
+import { condenseError } from './errors.js';
 
-/**
- * Condensa a mensagem de erro pra caber no banco SEM perder a causa.
- *
- * Erro de `execFile` chega como `"Command failed: <comando>\n<stderr>"` — e aqui o comando é o
- * prompt INTEIRO do agente (centenas de chars). O corte antigo (`slice(0, 500)`) guardava só o
- * eco do comando e descartava o stderr, que é a única parte que explica a falha: na prática
- * nenhum job era diagnosticável. Guardamos cabeça (o que rodou) + cauda (a causa).
- */
-export function condenseError(error: string, max = 2000): string {
-  const s = (error ?? '').trim();
-  if (s.length <= max) return s;
-  const head = 200;
-  const marker = '\n…[trecho do meio cortado]…\n';
-  return s.slice(0, head) + marker + s.slice(-(max - head - marker.length));
-}
+export { condenseError };
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS video_jobs (

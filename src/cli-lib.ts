@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { parseVideoCommand, formatQueueStatus, isFileTarget } from './queue.js';
-import type { QueueDeps, QueueStore } from './types.js';
+import type { QueueDeps, QueueStore, WaitForFileResult } from './types.js';
 
 const run = promisify(execFile);
 
@@ -101,31 +101,51 @@ export function optVal(tokens: string[], name: string): string | undefined {
   return i >= 0 ? tokens[i + 1] : undefined;
 }
 
-/** Espera um arquivo existir e estabilizar (tamanho parado), com timeout. Pro modo background+poll. */
+/**
+ * Espera um arquivo existir e estabilizar (tamanho parado), com timeout. Pro modo background+poll.
+ *
+ * Também vigia o marcador de falha `<p>.err` (convenção: o prompt dispara o comando real como
+ * `<cmd> || touch "<p>.err"`) — se ele aparecer ANTES do alvo, o passo destacado morreu e a
+ * gente falha NA HORA em vez de esperar o timeout inteiro (até 2h de espera cega, o bug real
+ * que motivou isso: um `transcrever_v1.py` que crashava ~10s depois de disparado). O timeout
+ * continua sendo o backstop pro caso "vivo mas pendurado".
+ *
+ * Limpa qualquer `.err` de uma tentativa anterior pro MESMO alvo antes de começar a vigiar —
+ * um marcador velho não pode envenenar uma espera nova (retry com o mesmo `outPath`).
+ */
 export async function waitForFile(
   p: string,
   opts: { timeoutMs?: number; stableMs?: number; pollMs?: number } = {},
-): Promise<boolean> {
+): Promise<WaitForFileResult> {
   const timeoutMs = opts.timeoutMs ?? 2 * 60 * 60 * 1000; // 2h
   const stableMs = opts.stableMs ?? 12_000;
   const pollMs = opts.pollMs ?? 5_000;
+  const errPath = `${p}.err`;
+  const logPath = `${p}.log`;
+  try { fs.unlinkSync(errPath); } catch { /* não existia — ok */ }
+
   const deadline = Date.now() + timeoutMs;
   let lastSize = -1;
   let stableSince = 0;
   while (Date.now() < deadline) {
+    if (fs.existsSync(errPath)) {
+      let logExcerpt: string | undefined;
+      try { logExcerpt = fs.readFileSync(logPath, 'utf8').slice(-4000); } catch { /* sem log */ }
+      return { ok: false, failedMarker: true, logExcerpt };
+    }
     let size = -1;
     try { size = fs.statSync(p).size; } catch { size = -1; }
     if (size > 0) {
       if (size === lastSize) {
         if (stableSince === 0) stableSince = Date.now();
-        if (Date.now() - stableSince >= stableMs) return true;
+        if (Date.now() - stableSince >= stableMs) return { ok: true, failedMarker: false };
       } else {
         lastSize = size; stableSince = 0;
       }
     }
     await new Promise((r) => setTimeout(r, pollMs));
   }
-  return false;
+  return { ok: false, failedMarker: false };
 }
 
 /** Deps default pro modo standalone: runAgent via `claude -p`, notifica no console, move via fs. */

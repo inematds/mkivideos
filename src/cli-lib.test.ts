@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { cmdAdd, cmdFila, cmdCancel, optVal, usage, makeDefaultDeps } from './cli-lib.js';
+import { cmdAdd, cmdFila, cmdCancel, optVal, usage, makeDefaultDeps, waitForFile } from './cli-lib.js';
 import { SqliteQueueStore } from './sqlite-store.js';
 
 describe('cli-lib', () => {
@@ -84,5 +84,53 @@ describe('cli-lib', () => {
   it('usage mentions the subcommands', () => {
     const u = usage();
     for (const s of ['add', 'fila', 'cancelar', 'run', 'MKIVIDEOS_DB']) expect(u).toContain(s);
+  });
+
+  describe('waitForFile', () => {
+    let tmp: string;
+    let target: string;
+
+    beforeEach(async () => {
+      const os = await import('node:os');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mkivideos-waitforfile-'));
+      target = path.join(tmp, 'out.mp4');
+    });
+
+    it('retorna sucesso quando o alvo aparece e estabiliza', async () => {
+      const fs = await import('node:fs');
+      const t0 = Date.now();
+      setTimeout(() => fs.writeFileSync(target, 'conteudo'), 20);
+      const res = await waitForFile(target, { timeoutMs: 5000, stableMs: 50, pollMs: 10 });
+      expect(res).toEqual({ ok: true, failedMarker: false });
+      expect(Date.now() - t0).toBeLessThan(5000);
+    });
+
+    it('retorna failedMarker RÁPIDO (não espera o timeout) quando aparece <alvo>.err', async () => {
+      const fs = await import('node:fs');
+      fs.writeFileSync(`${target}.log`, 'linha 1\nyt-dlp: falhou ao baixar\n');
+      const t0 = Date.now();
+      setTimeout(() => fs.writeFileSync(`${target}.err`, ''), 20);
+      const res = await waitForFile(target, { timeoutMs: 5000, stableMs: 50, pollMs: 10 });
+      const elapsed = Date.now() - t0;
+      expect(res.ok).toBe(false);
+      expect(res.failedMarker).toBe(true);
+      expect(res.logExcerpt).toContain('yt-dlp: falhou ao baixar');
+      expect(elapsed).toBeLessThan(1000); // bem antes do timeoutMs de 5000
+    });
+
+    it('honra o timeout quando nem alvo nem .err aparecem', async () => {
+      const res = await waitForFile(target, { timeoutMs: 60, stableMs: 20, pollMs: 10 });
+      expect(res).toEqual({ ok: false, failedMarker: false });
+    });
+
+    it('limpa um .err de uma tentativa anterior antes de começar a vigiar (não envenena o retry)', async () => {
+      const fs = await import('node:fs');
+      fs.writeFileSync(`${target}.err`, ''); // marcador de uma falha anterior pro mesmo alvo
+      setTimeout(() => fs.writeFileSync(target, 'conteudo'), 20);
+      const res = await waitForFile(target, { timeoutMs: 5000, stableMs: 50, pollMs: 10 });
+      expect(res).toEqual({ ok: true, failedMarker: false });
+    });
   });
 });
