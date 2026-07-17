@@ -3,7 +3,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   parseVideoCommand,
   buildVideoPrompt,
+  buildInemavoxPrompt,
   extractResultPath,
+  extractRenderTarget,
+  isFileTarget,
   formatQueueList,
   formatQueueStatus,
   mkiHelpText,
@@ -61,6 +64,70 @@ describe('parseVideoCommand', () => {
 
   it('rejects empty input', () => {
     expect(parseVideoCommand('explicativo   ')).toEqual({ ok: false, error: expect.any(String) });
+  });
+
+  it('accepts transcrever e dublar (delegam pro inemavox)', () => {
+    expect((parseVideoCommand('transcrever https://x') as any).skill).toBe('transcrever');
+    expect((parseVideoCommand('dublar https://x') as any).skill).toBe('dublar');
+  });
+
+  it('ainda rejeita lixo mesmo com transcrever/dublar aceitos', () => {
+    expect(parseVideoCommand('transcrevendo bar')).toEqual({ ok: false, error: expect.stringContaining('explicativo') });
+  });
+});
+
+describe('buildInemavoxPrompt', () => {
+  it('transcrever: cita o inemavox (não video-explicativo) e o contrato RESULT com .txt', () => {
+    const p = buildInemavoxPrompt({ skill: 'transcrever', input: 'https://x' });
+    expect(p).toContain('inemavox');
+    expect(p).toContain('transcrever_v1.py');
+    expect(p).not.toContain('video-explicativo');
+    expect(p).toContain('RESULT:');
+    expect(p).toContain('.txt');
+  });
+
+  it('dublar: cita o inemavox e dublar_pro_v5.py, contrato RESULT com .mp4', () => {
+    const p = buildInemavoxPrompt({ skill: 'dublar', input: 'https://x' });
+    expect(p).toContain('inemavox');
+    expect(p).toContain('dublar_pro_v5.py');
+    expect(p).not.toContain('video-explicativo');
+    expect(p).toContain('RESULT:');
+  });
+
+  it('com outPath: emite RENDER: e não RESULT:, como no modo background dos vídeos', () => {
+    const p = buildInemavoxPrompt({ skill: 'transcrever', input: 'https://x' }, '/out/t1.txt');
+    expect(p).toContain('RENDER: /out/t1.txt');
+    expect(p).not.toContain('RESULT:');
+  });
+});
+
+describe('extractResultPath/extractRenderTarget com extensões custom', () => {
+  it('aceita .txt/.srt quando exts inclui eles (transcrever)', () => {
+    expect(extractResultPath('ok\nRESULT: /out/transcript.txt', ['txt', 'srt'])).toBe('/out/transcript.txt');
+    expect(extractResultPath('ok\nRESULT: /out/legenda.srt', ['txt', 'srt'])).toBe('/out/legenda.srt');
+  });
+  it('rejeita .mp4 quando só .txt/.srt são esperados', () => {
+    expect(extractResultPath('RESULT: /out/video.mp4', ['txt', 'srt'])).toBeNull();
+  });
+  it('default continua .mp4 (skills de vídeo)', () => {
+    expect(extractResultPath('RESULT: /out/video.mp4')).toBe('/out/video.mp4');
+    expect(extractResultPath('RESULT: /out/video.txt')).toBeNull();
+  });
+  it('extractRenderTarget aceita .txt quando exts inclui', () => {
+    expect(extractRenderTarget('RENDER: /out/t.txt', ['txt'])).toBe('/out/t.txt');
+    expect(extractRenderTarget('RENDER: /out/t.txt')).toBeNull(); // default só mp4
+  });
+});
+
+describe('isFileTarget', () => {
+  it('reconhece .mp4/.txt/.srt como arquivo', () => {
+    expect(isFileTarget('/a/video.mp4')).toBe(true);
+    expect(isFileTarget('/a/transcript.txt')).toBe(true);
+    expect(isFileTarget('/a/legenda.srt')).toBe(true);
+  });
+  it('trata pasta (sem extensão) como diretório', () => {
+    expect(isFileTarget('/home/nei/videos')).toBe(false);
+    expect(isFileTarget('/home/nei/videos/')).toBe(false);
   });
 });
 

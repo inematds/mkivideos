@@ -8,24 +8,58 @@ const SKILL_SLUGS: Record<VideoJob['skill'], string> = {
   explicativo: 'video-explicativo',
   curso: 'videos-cursos-inema',
   demo: 'video-demonstrativo',
+  // 'transcrever'/'dublar' não usam skill do Claude Code — driblam direto o inemavox
+  // (ver buildInemavoxPrompt). Entradas aqui só por completude do Record.
+  transcrever: 'inemavox/transcrever_v1.py',
+  dublar: 'inemavox/dublar_pro_v5.py',
 };
 
 const SKILL_LABEL: Record<VideoJob['skill'], string> = {
   explicativo: 'explicativo',
   curso: 'curso INEMA',
   demo: 'demonstrativo',
+  transcrever: 'transcrição',
+  dublar: 'dublagem',
 };
+
+/**
+ * Extensão(ões) esperada(s) do artefato final de cada skill — o que torna o pipeline
+ * extension-agnostic: os skills de vídeo produzem .mp4; 'transcrever' produz TEXTO
+ * (.txt é o primário, .srt também é aceito); 'dublar' produz .mp4 (vídeo dublado).
+ * A primeira extensão da lista é a usada em buildOutputName/o nome-alvo default.
+ */
+export const SKILL_ARTIFACT_EXTS: Record<VideoJob['skill'], string[]> = {
+  explicativo: ['mp4'],
+  curso: ['mp4'],
+  demo: ['mp4'],
+  dublar: ['mp4'],
+  transcrever: ['txt', 'srt'],
+};
+
+const INEMAVOX_SKILLS = new Set<VideoJob['skill']>(['transcrever', 'dublar']);
+
+/** Skills que delegam pro inemavox (usam buildInemavoxPrompt). */
+function isInemavoxSkill(skill: VideoJob['skill']): skill is 'transcrever' | 'dublar' {
+  return INEMAVOX_SKILLS.has(skill);
+}
+
+/** Caminho parece um arquivo (tem extensão), não uma pasta — extension-agnostic (.mp4/.txt/.srt/…). */
+export function isFileTarget(p: string): boolean {
+  return /\.[A-Za-z0-9]{1,5}$/.test(p);
+}
+
+const ALL_SKILLS = ['explicativo', 'curso', 'demo', 'transcrever', 'dublar'] as const;
 
 /** Parseia o texto após "/mkivideos" (o caso de enfileirar). */
 export function parseVideoCommand(raw: string): ParsedCommand {
   const tokens = raw.trim().split(/\s+/).filter(Boolean);
   if (tokens.length === 0) {
-    return { ok: false, error: 'Uso: /mkivideos <explicativo|curso|demo> <assunto/link> [--vertical] [--enviar] [--silencioso] [--pasta <caminho>]' };
+    return { ok: false, error: 'Uso: /mkivideos <explicativo|curso|demo|transcrever|dublar> <assunto/link> [--vertical] [--enviar] [--silencioso] [--pasta <caminho>]' };
   }
 
   const skillToken = tokens[0].toLowerCase();
-  if (skillToken !== 'explicativo' && skillToken !== 'curso' && skillToken !== 'demo') {
-    return { ok: false, error: `Skill inválida "${skillToken}". Use: explicativo, curso ou demo.` };
+  if (!(ALL_SKILLS as readonly string[]).includes(skillToken)) {
+    return { ok: false, error: `Skill inválida "${skillToken}". Use: explicativo, curso, demo, transcrever ou dublar.` };
   }
   const skill = skillToken as VideoJob['skill'];
 
@@ -59,7 +93,7 @@ export function parseVideoCommand(raw: string): ParsedCommand {
  *   O worker vigia o arquivo até ficar pronto. Resolve o P7 (sessão não segura 1–2h).
  */
 export function buildVideoPrompt(
-  job: { skill: VideoJob['skill']; input: string; vertical: boolean },
+  job: { skill: 'explicativo' | 'curso' | 'demo'; input: string; vertical: boolean },
   outPath?: string,
 ): string {
   const slug = SKILL_SLUGS[job.skill];
@@ -87,14 +121,62 @@ export function buildVideoPrompt(
   ].join('\n');
 }
 
-/** Extrai o caminho do .mp4 do output do agente (última linha `RESULT:`). Null se ausente/ERRO. */
-export function extractResultPath(text: string | null): string | null {
-  return lastMatch(text, /^\s*RESULT:\s*(\S+\.mp4)\s*$/i);
+/**
+ * Prompt autônomo pra 'transcrever'/'dublar': NÃO usa skill de vídeo — driblam o inemavox
+ * (~/projetos/inemavox, READ-ONLY, não modificar) diretamente pelos scripts CLI reais:
+ *   - transcrever: `transcrever_v1.py --in <link> --outdir <dir> --asr whisper --whisper-model large-v3`
+ *     (grava `<dir>/transcript.txt` e `<dir>/transcript.srt` — sem flag de arquivo único).
+ *   - dublar: `dublar_pro_v5.py --in <link> --tgt pt --tts edge --out <outPath>` (grava direto em `--out`).
+ * Mesmo contrato RENDER:/RESULT:/ERRO: do buildVideoPrompt — mesma janela de timeout do worker.
+ */
+export function buildInemavoxPrompt(
+  job: { skill: 'transcrever' | 'dublar'; input: string },
+  outPath?: string,
+): string {
+  const isTranscrever = job.skill === 'transcrever';
+  const base = [
+    `Use o inemavox (pasta ~/projetos/inemavox, SOMENTE LEITURA — não edite nada lá dentro) para ${isTranscrever ? 'TRANSCREVER' : 'DUBLAR'} a partir de: "${job.input}".`,
+    'Rode de forma AUTÔNOMA, sem pedir confirmação nem qualquer interação.',
+  ];
+  const cmd = isTranscrever
+    ? [
+      `Rode (a partir de ~/projetos/inemavox): \`python3 transcrever_v1.py --in "${job.input}" --outdir <diretório temporário> --asr whisper --whisper-model large-v3\`.`,
+      `Esse script NÃO aceita caminho de saída único — ele grava \`<outdir>/transcript.txt\` e \`<outdir>/transcript.srt\`. Depois de rodar, copie/mova o \`transcript.txt\` (ou o \`.srt\` se o destino pedido terminar em .srt) para o caminho-alvo abaixo.`,
+    ]
+    : [
+      `Rode (a partir de ~/projetos/inemavox): \`python3 dublar_pro_v5.py --in "${job.input}" --tgt pt --tts edge --out <caminho-alvo>\` — esse script já grava o .mp4 dublado exatamente no caminho de \`--out\`.`,
+    ];
+  const artifact = isTranscrever ? 'TEXTO (transcrição .txt, aceita também .srt)' : 'vídeo dublado .mp4';
+  if (outPath) {
+    return [
+      ...base,
+      ...cmd,
+      `Faça TODO o trabalho (download + transcrição/dublagem) e DISPARE em BACKGROUND DESTACADO (ex.: \`nohup bash -c '...' >/tmp/mki-${job.skill}-$$.log 2>&1 &\`), garantindo que o artefato final (${artifact}) fique gravado EXATAMENTE em: ${outPath}`,
+      `NÃO espere terminar. Assim que disparar, sua ÚLTIMA linha deve ser exatamente: \`RENDER: ${outPath}\``,
+      'O serviço vai vigiar esse arquivo até ficar pronto — você pode encerrar a sessão logo após disparar.',
+      'Se NÃO conseguir nem disparar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
+    ].join('\n');
+  }
+  return [
+    ...base,
+    ...cmd,
+    `Ao terminar com sucesso, sua ÚLTIMA linha deve ser exatamente: \`RESULT: <caminho absoluto do artefato final (${artifact})>\`.`,
+    'Se falhar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
+  ].join('\n');
 }
 
-/** Extrai o caminho-alvo do render destacado (última linha `RENDER:`). Null se ausente. */
-export function extractRenderTarget(text: string | null): string | null {
-  return lastMatch(text, /^\s*RENDER:\s*(\S+\.mp4)\s*$/i);
+/** Extrai o caminho do artefato do output do agente (última linha `RESULT:`). Null se ausente/ERRO.
+ *  `exts` restringe as extensões aceitas (default `['mp4']`, compat com os skills de vídeo). */
+export function extractResultPath(text: string | null, exts: string[] = ['mp4']): string | null {
+  const alt = exts.map((e) => e.replace(/^\./, '')).join('|');
+  return lastMatch(text, new RegExp(`^\\s*RESULT:\\s*(\\S+\\.(?:${alt}))\\s*$`, 'i'));
+}
+
+/** Extrai o caminho-alvo do render destacado (última linha `RENDER:`). Null se ausente.
+ *  `exts` restringe as extensões aceitas (default `['mp4']`). */
+export function extractRenderTarget(text: string | null, exts: string[] = ['mp4']): string | null {
+  const alt = exts.map((e) => e.replace(/^\./, '')).join('|');
+  return lastMatch(text, new RegExp(`^\\s*RENDER:\\s*(\\S+\\.(?:${alt}))\\s*$`, 'i'));
 }
 
 function lastMatch(text: string | null, re: RegExp): string | null {
@@ -122,15 +204,15 @@ export function slugify(s: string): string {
  * `<curso>-<modulo>-<16|9>.mp4`. Sem curso/módulo, cai pra `mkivideo-<id>-<fmt>.mp4`.
  * O enfileirador deve passar `module` já como "t1m1-o-que-e-uma-skill" pra bater o padrão.
  */
-export function buildOutputName(job: Pick<VideoJob, 'id' | 'course' | 'module' | 'opts'>): string {
+export function buildOutputName(job: Pick<VideoJob, 'id' | 'course' | 'module' | 'opts'>, ext: string = 'mp4'): string {
   let vertical = false;
   if (job.opts) { try { vertical = !!(JSON.parse(job.opts) as { vertical?: boolean }).vertical; } catch { /* ignora */ } }
   const fmt = vertical ? '9' : '16';
   const course = job.course ? slugify(job.course) : '';
   const mod = job.module ? slugify(job.module) : '';
-  if (course && mod) return `${course}-${mod}-${fmt}.mp4`;
-  if (course) return `${course}-${fmt}.mp4`;
-  return `mkivideo-${job.id}-${fmt}.mp4`;
+  if (course && mod) return `${course}-${mod}-${fmt}.${ext}`;
+  if (course) return `${course}-${fmt}.${ext}`;
+  return `mkivideo-${job.id}-${fmt}.${ext}`;
 }
 
 /** Um vídeo-filho que o PLANNER decidiu enfileirar. */
@@ -250,11 +332,15 @@ export function mkiHelpText(): string {
     '  /mkivideos curso &lt;link do curso&gt;',
     '  /mkivideos demo &lt;link do app&gt;',
     '',
+    '<b>Delegam pro inemavox (produtos standalone, mesma fila GPU):</b>',
+    '  /mkivideos transcrever &lt;link&gt;  baixa + transcreve local (Whisper) → .txt/.srt',
+    '  /mkivideos dublar &lt;link&gt;       baixa + dubla com IA → .mp4',
+    '',
     '<b>Flags (no fim):</b>',
-    '  --vertical    gera 9:16 (Shorts/Reels) em vez do padrão',
-    '  --enviar      anexa o .mp4 no Telegram ao terminar',
+    '  --vertical    gera 9:16 (Shorts/Reels) em vez do padrão — só nos skills de vídeo',
+    '  --enviar      anexa o arquivo final (.mp4/.txt/.srt) no Telegram ao terminar',
     '  --silencioso  não notifica; aparece só no painel',
-    '  --pasta &lt;caminho&gt;  move o .mp4 pra essa pasta (ou caminho .mp4 completo)',
+    '  --pasta &lt;caminho&gt;  move o arquivo final pra essa pasta (ou caminho de arquivo completo)',
     '  --curso &lt;nome&gt;     rótulo do curso (agrupa nas estatísticas)',
     '  --modulo &lt;label&gt;   rótulo do módulo (ex.: t1m1-o-que-e-uma-skill)',
     '',
@@ -337,25 +423,29 @@ async function runClaimedJob(store: QueueStore, deps: QueueDeps, job: VideoJob, 
     return;
   }
 
-  if (notify) await deps.sendMessage(job.chat_id!, `▶️ Iniciando vídeo #${job.id} (${SKILL_LABEL[job.skill]})`);
+  if (notify) await deps.sendMessage(job.chat_id!, `▶️ Iniciando #${job.id} (${SKILL_LABEL[job.skill]})`);
 
   try {
     const o = parseOpts(job.opts);
     const background = opts.background ?? false;
+    const exts = SKILL_ARTIFACT_EXTS[job.skill];
+    const buildPrompt = (outPath?: string): string =>
+      isInemavoxSkill(job.skill)
+        ? buildInemavoxPrompt({ skill: job.skill, input: job.input }, outPath)
+        : buildVideoPrompt({ skill: job.skill, input: job.input, vertical: !!o.vertical }, outPath);
 
     if (background) {
       // alvo determinístico que o worker vai vigiar
-      const destIsFile = !!o.dest && o.dest.toLowerCase().endsWith('.mp4');
+      const destIsFile = !!o.dest && isFileTarget(o.dest);
       const renderDir = opts.renderDir ?? 'renders';
-      const target = destIsFile ? o.dest! : joinPath(renderDir, buildOutputName(job));
+      const target = destIsFile ? o.dest! : joinPath(renderDir, buildOutputName(job, exts[0]));
 
-      const prompt = buildVideoPrompt({ skill: job.skill, input: job.input, vertical: !!o.vertical }, target);
-      const result = await deps.runAgent(prompt);
-      const rendered = extractRenderTarget(result.text);
+      const result = await deps.runAgent(buildPrompt(target));
+      const rendered = extractRenderTarget(result.text, exts);
       if (!rendered) {
         const reason = lastErr(result.text) || 'agente não disparou o render (sem RENDER:)';
         store.markFailed(job.id, reason);
-        if (notify) await deps.sendMessage(job.chat_id!, `❌ Vídeo #${job.id} falhou: ${reason}`);
+        if (notify) await deps.sendMessage(job.chat_id!, `❌ #${job.id} falhou: ${reason}`);
         return;
       }
       store.setRenderTarget(job.id, rendered);
@@ -366,7 +456,7 @@ async function runClaimedJob(store: QueueStore, deps: QueueDeps, job: VideoJob, 
       const ok = await deps.waitForFile(rendered, { timeoutMs: opts.pollTimeoutMs, stableMs: opts.pollStableMs });
       if (!ok) {
         store.markFailed(job.id, `render não completou no tempo — alvo ${rendered}`);
-        if (notify) await deps.sendMessage(job.chat_id!, `❌ Vídeo #${job.id} falhou: render não completou (timeout)`);
+        if (notify) await deps.sendMessage(job.chat_id!, `❌ #${job.id} falhou: render não completou (timeout)`);
         return;
       }
       let finalPath = rendered;
@@ -375,7 +465,7 @@ async function runClaimedJob(store: QueueStore, deps: QueueDeps, job: VideoJob, 
         catch (e) { if (notify) await deps.sendMessage(job.chat_id!, `⚠ #${job.id} renderizou mas não movi pra ${o.dest}: ${(e as Error).message}`); }
       }
       store.markDone(job.id, finalPath);
-      if (notify) await deps.sendMessage(job.chat_id!, `✅ Vídeo #${job.id} pronto — ${SKILL_LABEL[job.skill]}\n${finalPath}`);
+      if (notify) await deps.sendMessage(job.chat_id!, `✅ #${job.id} pronto — ${SKILL_LABEL[job.skill]}\n${finalPath}`);
       if (job.send_video && job.chat_id) {
         try { await deps.sendDocument(job.chat_id, finalPath); }
         catch (e) { if (notify) await deps.sendMessage(job.chat_id, `(não consegui anexar o arquivo: ${(e as Error).message})`); }
@@ -384,13 +474,12 @@ async function runClaimedJob(store: QueueStore, deps: QueueDeps, job: VideoJob, 
     }
 
     // modo síncrono legado: o agente faz tudo e emite RESULT:
-    const prompt = buildVideoPrompt({ skill: job.skill, input: job.input, vertical: !!o.vertical });
-    const result = await deps.runAgent(prompt);
-    const path = extractResultPath(result.text);
+    const result = await deps.runAgent(buildPrompt());
+    const path = extractResultPath(result.text, exts);
     if (!path) {
       const reason = lastErr(result.text) || 'sem RESULT no output do agente';
       store.markFailed(job.id, reason);
-      if (notify) await deps.sendMessage(job.chat_id!, `❌ Vídeo #${job.id} falhou: ${reason}`);
+      if (notify) await deps.sendMessage(job.chat_id!, `❌ #${job.id} falhou: ${reason}`);
       return;
     }
     let finalPath = path;
@@ -398,11 +487,11 @@ async function runClaimedJob(store: QueueStore, deps: QueueDeps, job: VideoJob, 
       try { finalPath = await deps.moveVideo(path, o.dest); }
       catch (e) {
         finalPath = path;
-        if (notify) await deps.sendMessage(job.chat_id!, `⚠ Vídeo #${job.id} renderizou mas não consegui mover pra ${o.dest}: ${(e as Error).message}. Ficou em ${path}`);
+        if (notify) await deps.sendMessage(job.chat_id!, `⚠ #${job.id} renderizou mas não consegui mover pra ${o.dest}: ${(e as Error).message}. Ficou em ${path}`);
       }
     }
     store.markDone(job.id, finalPath);
-    if (notify) await deps.sendMessage(job.chat_id!, `✅ Vídeo #${job.id} pronto — ${SKILL_LABEL[job.skill]}\n${finalPath}`);
+    if (notify) await deps.sendMessage(job.chat_id!, `✅ #${job.id} pronto — ${SKILL_LABEL[job.skill]}\n${finalPath}`);
     if (job.send_video && job.chat_id) {
       try { await deps.sendDocument(job.chat_id, finalPath); }
       catch (e) { if (notify) await deps.sendMessage(job.chat_id, `(não consegui anexar o arquivo: ${(e as Error).message})`); }
@@ -410,7 +499,7 @@ async function runClaimedJob(store: QueueStore, deps: QueueDeps, job: VideoJob, 
   } catch (e) {
     const msg = (e as Error).message || String(e);
     store.markFailed(job.id, msg);
-    if (notify) await deps.sendMessage(job.chat_id!, `❌ Vídeo #${job.id} falhou: ${msg}`);
+    if (notify) await deps.sendMessage(job.chat_id!, `❌ #${job.id} falhou: ${msg}`);
   }
 }
 

@@ -4,7 +4,13 @@
 
 export interface VideoJob {
   id: number;
-  skill: 'explicativo' | 'curso' | 'demo';
+  /**
+   * 'explicativo' | 'curso' | 'demo' = skills de vídeo (HyperFrames, saída .mp4).
+   * 'transcrever' | 'dublar' = delegam pro inemavox (READ-ONLY): 'transcrever' baixa+transcreve
+   * localmente (Whisper) e produz TEXTO (.txt/.srt); 'dublar' baixa+dubla com IA e produz .mp4.
+   * Ambos passam pela FILA (GPU-heavy: Whisper large-v3 / clonagem de voz) — nunca rodam soltos.
+   */
+  skill: 'explicativo' | 'curso' | 'demo' | 'transcrever' | 'dublar';
   input: string;
   /**
    * 'video' = produz 1 vídeo (default, modelo 1 job = 1 render).

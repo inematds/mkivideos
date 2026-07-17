@@ -99,6 +99,33 @@ describe('processNextJob — background+poll', () => {
     expect(moved).toEqual([{ src: '/renders/x.mp4', dest: '/final' }]);
     expect(store.list()[0].result_path).toBe('/final/moved.mp4');
   });
+
+  it('transcrever: aceita artefato .txt (não .mp4) no RENDER: e marca done', async () => {
+    const id = store.enqueue({ skill: 'transcrever', input: 'https://x', opts: null, notify: 'sempre', sendVideo: false, chatId: '1' });
+    await processNextJob(store, deps('setup...\nRENDER: /renders/mkivideo-1-16.txt', true), opts);
+    const job = store.list().find((x) => x.id === id)!;
+    expect(job.status).toBe('done');
+    expect(job.result_path).toBe('/renders/mkivideo-1-16.txt');
+  });
+
+  it('transcrever: --pasta apontando pra um .txt é tratado como arquivo (não pasta)', async () => {
+    store.enqueue({ skill: 'transcrever', input: 'https://x', opts: JSON.stringify({ dest: '/final/transcricao.txt' }), notify: 'silencioso', sendVideo: false, chatId: '1' });
+    await processNextJob(store, deps('RENDER: /final/transcricao.txt', true), opts);
+    expect(moved).toEqual([]); // não passou por moveVideo — já era o destino final
+    expect(store.list()[0].result_path).toBe('/final/transcricao.txt');
+  });
+
+  it('dublar: usa .mp4 igual aos skills de vídeo (RENDER: com .mp4)', async () => {
+    const id = store.enqueue({ skill: 'dublar', input: 'https://x', opts: null, notify: 'sempre', sendVideo: false, chatId: '1' });
+    await processNextJob(store, deps('RENDER: /renders/mkivideo-1-16.mp4', true), opts);
+    expect(store.list().find((x) => x.id === id)!.status).toBe('done');
+  });
+
+  it('transcrever: RENDER: com .mp4 é rejeitado (extensão errada pra essa skill)', async () => {
+    const id = store.enqueue({ skill: 'transcrever', input: 'https://x', opts: null, notify: 'sempre', sendVideo: false, chatId: '1' });
+    await processNextJob(store, deps('RENDER: /renders/x.mp4', true), opts);
+    expect(store.list().find((x) => x.id === id)!.status).toBe('failed');
+  });
 });
 
 describe('concorrência', () => {

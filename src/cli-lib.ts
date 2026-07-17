@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { parseVideoCommand, formatQueueStatus } from './queue.js';
+import { parseVideoCommand, formatQueueStatus, isFileTarget } from './queue.js';
 import type { QueueDeps, QueueStore } from './types.js';
 
 const run = promisify(execFile);
@@ -138,7 +138,7 @@ export function makeDefaultDeps(): QueueDeps {
     sendMessage: async (_chatId, text) => { console.log(text); },
     sendDocument: async (_chatId, p) => { console.log('📎', p); },
     moveVideo: async (src, dest) => {
-      const isFile = dest.toLowerCase().endsWith('.mp4');
+      const isFile = isFileTarget(dest);
       const targetDir = isFile ? path.dirname(dest) : dest;
       fs.mkdirSync(targetDir, { recursive: true });
       const target = isFile ? dest : path.join(dest, path.basename(src));
@@ -155,7 +155,8 @@ export function usage(): string {
     'mkivideos — fila de vídeos (standalone)',
     '',
     'Uso:',
-    '  mkivideos add <explicativo|curso|demo> <assunto/link> [--vertical] [--enviar] [--silencioso] [--pasta <caminho>] [--curso <nome>] [--modulo <label>]',
+    '  mkivideos add <explicativo|curso|demo|transcrever|dublar> <assunto/link> [--vertical] [--enviar] [--silencioso] [--pasta <caminho>] [--curso <nome>] [--modulo <label>]',
+    '    transcrever/dublar delegam pro inemavox (mesma fila GPU): transcrever → .txt/.srt local (Whisper); dublar → .mp4 dublado com IA.',
     '  mkivideos plan <url-do-curso | assunto>     # PLANNER: mapeia e enfileira 1 job de vídeo por peça (curso → módulos)',
     '  mkivideos fila',
     '  mkivideos stats                            # status + por curso (X/Y) + ETA',

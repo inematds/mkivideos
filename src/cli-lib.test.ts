@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { cmdAdd, cmdFila, cmdCancel, optVal, usage } from './cli-lib.js';
+import { cmdAdd, cmdFila, cmdCancel, optVal, usage, makeDefaultDeps } from './cli-lib.js';
 import { SqliteQueueStore } from './sqlite-store.js';
 
 describe('cli-lib', () => {
@@ -25,6 +25,28 @@ describe('cli-lib', () => {
     it('rejects an invalid skill', () => {
       expect(cmdAdd(store, 'foo bar')).toMatch(/^erro:/);
       expect(store.list()).toHaveLength(0);
+    });
+
+    it('enqueues transcrever/dublar', () => {
+      expect(cmdAdd(store, 'transcrever https://x')).toMatch(/enfileirado #1 \(transcrever\)/);
+      expect(cmdAdd(store, 'dublar https://y')).toMatch(/enfileirado #2 \(dublar\)/);
+      expect(store.list()).toHaveLength(2);
+    });
+  });
+
+  describe('--pasta com destino .txt (moveVideo do makeDefaultDeps)', () => {
+    it('trata caminho terminado em .txt como ARQUIVO, não diretório', async () => {
+      const os = await import('node:os');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mkivideos-test-'));
+      const src = path.join(tmp, 'source.txt');
+      fs.writeFileSync(src, 'ola');
+      const destFile = path.join(tmp, 'sub', 'transcricao.txt');
+      const deps = makeDefaultDeps();
+      const finalPath = await deps.moveVideo(src, destFile);
+      expect(finalPath).toBe(destFile);
+      expect(fs.existsSync(destFile)).toBe(true);
     });
   });
 
