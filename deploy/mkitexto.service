@@ -1,0 +1,32 @@
+[Unit]
+# SEGUNDA INSTÂNCIA do mkivideos — mesmo binário, fila separada.
+#
+# Por que existir: transcrever/dublar (inemavox: download + Whisper + clonagem de voz) são
+# produtos de TEXTO/ÁUDIO, curtos (minutos), enquanto um render de vídeo leva ~15min. Numa fila
+# única, FIFO e concorrência 1, um pedido de 2min ficava atrás de horas de render — inviável pro
+# uso real ("me dá o texto disso agora").
+#
+# Separar por FILA em vez de por prioridade também isola as falhas e os restarts: dá pra
+# mexer/reiniciar uma sem matar o job da outra.
+#
+# Gargalos são diferentes: o render satura CPU (captura de frames no Chrome; a GPU só acelera
+# encode/TTS), enquanto transcrição/dublagem saturam GPU. Rodar as duas em paralelo é a APOSTA
+# deste desenho — MEDIR antes de aumentar concorrência.
+Description=mkitexto — fila de texto/áudio (transcrever, dublar via inemavox)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projetos/mkivideos
+# PATH explícito: systemd user unit não herda o PATH do shell; precisa achar `node`, `npx`, `claude`, `ffmpeg`, `python`.
+Environment=PATH=%h/.local/bin:%h/.nvm/versions/node/current/bin:/usr/local/bin:/usr/bin:/bin
+# Banco PRÓPRIO: é o que torna a fila independente (ids, worker e ETA separados do mkivideos).
+Environment=MKIVIDEOS_DB=%h/projetos/mkivideos/mkitexto.db
+Environment=MKIVIDEOS_CONCURRENCY=1
+Environment=MKIVIDEOS_RENDER_DIR=%h/projetos/mkivideos/textos
+ExecStart=/usr/bin/node %h/projetos/mkivideos/dist/cli.js run --port 3143 --token inemadash
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
