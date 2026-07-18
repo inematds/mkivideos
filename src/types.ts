@@ -11,9 +11,13 @@ export interface VideoJob {
    * 'reel' = delega pra skill `reel-edita-inema` (READ-ONLY): monta um reel 9:16 empilhado
    * (topo headline · meio avatar · base explicativo) a partir do MP4 do avatar (input = caminho
    * absoluto do avatar, possivelmente com instruções extra em texto livre anexadas pelo bot).
+   * 'reelinematds' = delega pra skill `reel-edita-inematds` (READ-ONLY): converte um bruto vertical
+   * (rosto falando) num reel produzido no estilo pessoal INEMATDS — corte determinístico, PiP
+   * inferior-direita + B-roll real/IA, legendas grandes, cold open e CTA final "inema.club",
+   * revisor independente obrigatório (input = caminho absoluto do bruto MP4).
    * Todos passam pela FILA (GPU-heavy) — nunca rodam soltos.
    */
-  skill: 'explicativo' | 'curso' | 'demo' | 'transcrever' | 'dublar' | 'reel';
+  skill: 'explicativo' | 'curso' | 'demo' | 'transcrever' | 'dublar' | 'reel' | 'reelinematds';
   input: string;
   /**
    * 'video' = produz 1 vídeo (default, modelo 1 job = 1 render).

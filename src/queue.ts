@@ -14,6 +14,7 @@ const SKILL_SLUGS: Record<VideoJob['skill'], string> = {
   transcrever: 'inemavox/transcrever_v1.py',
   dublar: 'inemavox/dublar_pro_v5.py',
   reel: 'reel-edita-inema',
+  reelinematds: 'reel-edita-inematds',
 };
 
 const SKILL_LABEL: Record<VideoJob['skill'], string> = {
@@ -23,6 +24,7 @@ const SKILL_LABEL: Record<VideoJob['skill'], string> = {
   transcrever: 'transcrição',
   dublar: 'dublagem',
   reel: 'reel',
+  reelinematds: 'reel INEMATDS',
 };
 
 /**
@@ -38,6 +40,7 @@ export const SKILL_ARTIFACT_EXTS: Record<VideoJob['skill'], string[]> = {
   dublar: ['mp4'],
   transcrever: ['txt', 'srt'],
   reel: ['mp4'],
+  reelinematds: ['mp4'],
 };
 
 const INEMAVOX_SKILLS = new Set<VideoJob['skill']>(['transcrever', 'dublar']);
@@ -52,7 +55,7 @@ export function isFileTarget(p: string): boolean {
   return /\.[A-Za-z0-9]{1,5}$/.test(p);
 }
 
-const ALL_SKILLS = ['explicativo', 'curso', 'demo', 'transcrever', 'dublar', 'reel'] as const;
+const ALL_SKILLS = ['explicativo', 'curso', 'demo', 'transcrever', 'dublar', 'reel', 'reelinematds'] as const;
 
 /** Parseia o texto após "/mkivideos" (o caso de enfileirar). */
 export function parseVideoCommand(raw: string): ParsedCommand {
@@ -199,6 +202,44 @@ export function buildReelPrompt(
       `Depois que a skill terminar (render final aprovado pelo revisor), copie o .mp4 final EXATAMENTE para: ${outPath}`,
       `Faça TODO o trabalho (todas as fases da skill, incluindo o revisor) e DISPARE em BACKGROUND DESTACADO, envolvendo TUDO num \`bash -c '<seus comandos/agente> || touch "${outPath}.err"'\` — se qualquer etapa morrer, isso cria o marcador de falha que o serviço vigia. Ex.: \`nohup bash -c '<pipeline completo terminando na cópia para ${outPath}> || touch "${outPath}.err"' >"${outPath}.log" 2>&1 &\``,
       `NÃO pule o \`|| touch "${outPath}.err"\` — é isso que evita o serviço ficar esperando até 2h por um processo que já morreu (reel é um job LONGO: corte + geração de explicativo/visuais + composição + revisor).`,
+      `NÃO espere terminar. Assim que disparar, sua ÚLTIMA linha deve ser exatamente: \`RENDER: ${outPath}\``,
+      `O serviço vai vigiar TANTO o arquivo final (${outPath}) QUANTO o marcador de falha (${outPath}.err) — o que aparecer primeiro decide. Log completo fica em ${outPath}.log. Você pode encerrar a sessão logo após disparar.`,
+      'Se NÃO conseguir nem disparar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
+    ].join('\n');
+  }
+  return [
+    ...base,
+    'Ao terminar com sucesso, sua ÚLTIMA linha deve ser exatamente: `RESULT: <caminho absoluto do .mp4 final do reel>`.',
+    'Se falhar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
+  ].join('\n');
+}
+
+/**
+ * Prompt autônomo pra 'reelinematds': usa a skill pessoal `reel-edita-inematds` pra converter um
+ * bruto vertical (rosto falando) num reel produzido no estilo INEMATDS — corte determinístico
+ * (silencedetect + comporta + revisor), tratamento visual proposto conforme o conteúdo (PiP
+ * inferior-direita / tela dividida / full-frame + B-roll real via Firecrawl ou gerado via
+ * inemaimg/Agnes), legendas/rótulos grandes na altura do peito, cold open e CTA final
+ * "inema.club" — ambos como clipes separados antepostos via ffmpeg concat. `job.input` é o
+ * caminho absoluto do bruto MP4 (possivelmente com instruções extra em texto livre anexadas pelo
+ * bot, ex.: "sem música", "resolução 1080x1920") — passado VERBATIM, sem parsear.
+ */
+export function buildReelInematdsPrompt(
+  job: { skill: 'reelinematds'; input: string },
+  outPath?: string,
+): string {
+  const base = [
+    `Use a skill \`reel-edita-inematds\` (~/.claude/skills/reel-edita-inematds, SOMENTE LEITURA — não edite nada lá dentro) para converter em reel produzido: "${job.input}".`,
+    'Trate essa string exatamente como veio — pode ser só o caminho do bruto MP4, ou o caminho seguido de instruções extra em texto livre. NÃO decida o tratamento visual por conta própria: é a própria skill quem lê o corte com /watch e propõe o tratamento (PiP/split/full-frame + B-roll) conforme o conteúdo, inclusive o corte, o cold open, o CTA final e o revisor.',
+    'Rode de forma AUTÔNOMA, sem pedir confirmação nem qualquer interação — siga o `control.autonomia = decide-sozinha-por-padrao` do perfil da própria skill (a pessoa pode pedir diferente na entrada, mas o padrão é não interromper).',
+    'A skill grava o resultado final em `~/projetos/output/reels/<slug>/` (a convenção de saída dela — NÃO force outro diretório).',
+  ];
+  if (outPath) {
+    return [
+      ...base,
+      `Depois que a skill terminar (render final aprovado pelo revisor), copie o .mp4 final EXATAMENTE para: ${outPath}`,
+      `Faça TODO o trabalho (todas as fases da skill, incluindo o revisor) e DISPARE em BACKGROUND DESTACADO, envolvendo TUDO num \`bash -c '<seus comandos/agente> || touch "${outPath}.err"'\` — se qualquer etapa morrer, isso cria o marcador de falha que o serviço vigia. Ex.: \`nohup bash -c '<pipeline completo terminando na cópia para ${outPath}> || touch "${outPath}.err"' >"${outPath}.log" 2>&1 &\``,
+      `NÃO pule o \`|| touch "${outPath}.err"\` — é isso que evita o serviço ficar esperando até 2h por um processo que já morreu (reel é um job LONGO: corte + B-roll + composição + revisor).`,
       `NÃO espere terminar. Assim que disparar, sua ÚLTIMA linha deve ser exatamente: \`RENDER: ${outPath}\``,
       `O serviço vai vigiar TANTO o arquivo final (${outPath}) QUANTO o marcador de falha (${outPath}.err) — o que aparecer primeiro decide. Log completo fica em ${outPath}.log. Você pode encerrar a sessão logo após disparar.`,
       'Se NÃO conseguir nem disparar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
@@ -385,6 +426,9 @@ export function mkiHelpText(): string {
     '<b>Reel (skill reel-edita-inema, mesma fila GPU):</b>',
     '  /mkivideos reel &lt;caminho do avatar.mp4&gt;  monta reel 9:16 empilhado (topo headline · meio avatar · base explicativo) → .mp4',
     '',
+    '<b>Reel INEMATDS (skill reel-edita-inematds, mesma fila GPU):</b>',
+    '  /mkivideos reelinematds &lt;caminho do bruto.mp4&gt;  reel pessoal produzido (corte + PiP/B-roll + legendas + cold open + CTA inema.club) → .mp4',
+    '',
     '<b>Flags (no fim):</b>',
     '  --vertical    gera 9:16 (Shorts/Reels) em vez do padrão — só nos skills de vídeo',
     '  --enviar      anexa o arquivo final (.mp4/.txt/.srt) no Telegram ao terminar',
@@ -481,6 +525,7 @@ async function runClaimedJob(store: QueueStore, deps: QueueDeps, job: VideoJob, 
     const buildPrompt = (outPath?: string): string => {
       if (isInemavoxSkill(job.skill)) return buildInemavoxPrompt({ skill: job.skill, input: job.input }, outPath);
       if (job.skill === 'reel') return buildReelPrompt({ skill: 'reel', input: job.input }, outPath);
+      if (job.skill === 'reelinematds') return buildReelInematdsPrompt({ skill: 'reelinematds', input: job.input }, outPath);
       return buildVideoPrompt({ skill: job.skill, input: job.input, vertical: !!o.vertical }, outPath);
     };
 
