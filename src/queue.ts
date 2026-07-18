@@ -199,12 +199,13 @@ export function buildReelPrompt(
   if (outPath) {
     return [
       ...base,
-      `Depois que a skill terminar (render final aprovado pelo revisor), copie o .mp4 final EXATAMENTE para: ${outPath}`,
-      `Faça TODO o trabalho (todas as fases da skill, incluindo o revisor) e DISPARE em BACKGROUND DESTACADO, envolvendo TUDO num \`bash -c '<seus comandos/agente> || touch "${outPath}.err"'\` — se qualquer etapa morrer, isso cria o marcador de falha que o serviço vigia. Ex.: \`nohup bash -c '<pipeline completo terminando na cópia para ${outPath}> || touch "${outPath}.err"' >"${outPath}.log" 2>&1 &\``,
-      `NÃO pule o \`|| touch "${outPath}.err"\` — é isso que evita o serviço ficar esperando até 2h por um processo que já morreu (reel é um job LONGO: corte + geração de explicativo/visuais + composição + revisor).`,
-      `NÃO espere terminar. Assim que disparar, sua ÚLTIMA linha deve ser exatamente: \`RENDER: ${outPath}\``,
-      `O serviço vai vigiar TANTO o arquivo final (${outPath}) QUANTO o marcador de falha (${outPath}.err) — o que aparecer primeiro decide. Log completo fica em ${outPath}.log. Você pode encerrar a sessão logo após disparar.`,
-      'Se NÃO conseguir nem disparar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
+      `Rode TODAS as fases CRIATIVAS da skill (corte, geração de explicativo/visuais, composição empilhada, SFX, revisor) INLINE, NESTA MESMA sessão — como você já está fazendo agora. É um pipeline dirigido por você (Claude), não um comando shell.`,
+      `PROIBIDO disparar um sub-agente \`claude -p\` (nem com --permission-mode/--dangerously-skip-permissions) pra rodar o reel em background: o classificador de segurança BLOQUEIA \`claude -p\` aninhado e o job falha. Nada de sub-claude destacado. Faça o trabalho aqui mesmo.`,
+      `SÓ O RENDER FINAL do Hyperframes (que é um COMANDO SHELL, não trabalho de Claude) vai pra background destacado, exatamente como o vídeo explicativo faz: \`nohup bash -c 'npx hyperframes render --quality high --output "${outPath}" || touch "${outPath}.err"' >"${outPath}.log" 2>&1 &\`. Antes disso, todo o setup do reel (index.html/composição pronta) já tem de estar feito inline.`,
+      `NÃO pule o \`|| touch "${outPath}.err"\` — é o que evita o serviço esperar até 2h por um render que morreu.`,
+      `Assim que o RENDER FINAL estiver disparado (com o setup do reel já concluído inline), sua ÚLTIMA linha deve ser exatamente: \`RENDER: ${outPath}\``,
+      `O serviço vai vigiar TANTO o arquivo final (${outPath}) QUANTO o marcador de falha (${outPath}.err) — o que aparecer primeiro decide. Log completo fica em ${outPath}.log.`,
+      'Se NÃO conseguir concluir o setup ou disparar o render, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
     ].join('\n');
   }
   return [
@@ -237,12 +238,13 @@ export function buildReelInematdsPrompt(
   if (outPath) {
     return [
       ...base,
-      `Depois que a skill terminar (render final aprovado pelo revisor), copie o .mp4 final EXATAMENTE para: ${outPath}`,
-      `Faça TODO o trabalho (todas as fases da skill, incluindo o revisor) e DISPARE em BACKGROUND DESTACADO, envolvendo TUDO num \`bash -c '<seus comandos/agente> || touch "${outPath}.err"'\` — se qualquer etapa morrer, isso cria o marcador de falha que o serviço vigia. Ex.: \`nohup bash -c '<pipeline completo terminando na cópia para ${outPath}> || touch "${outPath}.err"' >"${outPath}.log" 2>&1 &\``,
-      `NÃO pule o \`|| touch "${outPath}.err"\` — é isso que evita o serviço ficar esperando até 2h por um processo que já morreu (reel é um job LONGO: corte + B-roll + composição + revisor).`,
-      `NÃO espere terminar. Assim que disparar, sua ÚLTIMA linha deve ser exatamente: \`RENDER: ${outPath}\``,
-      `O serviço vai vigiar TANTO o arquivo final (${outPath}) QUANTO o marcador de falha (${outPath}.err) — o que aparecer primeiro decide. Log completo fica em ${outPath}.log. Você pode encerrar a sessão logo após disparar.`,
-      'Se NÃO conseguir nem disparar, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
+      `Rode TODAS as fases CRIATIVAS da skill (corte, PiP/B-roll, composição, SFX, revisor) INLINE, NESTA MESMA sessão — é um pipeline dirigido por você (Claude), não um comando shell.`,
+      `PROIBIDO disparar um sub-agente \`claude -p\` (nem com --permission-mode/--dangerously-skip-permissions) pra rodar o reel em background: o classificador de segurança BLOQUEIA \`claude -p\` aninhado e o job falha. Faça o trabalho aqui mesmo.`,
+      `SÓ O RENDER FINAL do Hyperframes (um COMANDO SHELL) vai pra background destacado: \`nohup bash -c 'npx hyperframes render --quality high --output "${outPath}" || touch "${outPath}.err"' >"${outPath}.log" 2>&1 &\`. Antes disso, todo o setup do reel já tem de estar feito inline.`,
+      `NÃO pule o \`|| touch "${outPath}.err"\` — é o que evita o serviço esperar até 2h por um render que morreu.`,
+      `Assim que o RENDER FINAL estiver disparado (setup já concluído inline), sua ÚLTIMA linha deve ser exatamente: \`RENDER: ${outPath}\``,
+      `O serviço vai vigiar TANTO o arquivo final (${outPath}) QUANTO o marcador de falha (${outPath}.err) — o que aparecer primeiro decide. Log completo fica em ${outPath}.log.`,
+      'Se NÃO conseguir concluir o setup ou disparar o render, sua ÚLTIMA linha deve ser: `ERRO: <motivo curto>`.',
     ].join('\n');
   }
   return [
