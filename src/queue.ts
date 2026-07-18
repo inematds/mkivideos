@@ -191,7 +191,7 @@ export function buildReelPrompt(
     `Use a skill \`reel-edita-inema\` (~/.claude/skills/reel-edita-inema, SOMENTE LEITURA — não edite nada lá dentro) para montar um REEL 9:16 empilhado INEMA (topo headline · meio avatar · base explicativo) a partir de: "${job.input}".`,
     'Trate essa string exatamente como veio — pode ser só o caminho do avatar MP4, ou o caminho seguido de instruções extra em texto livre (ex.: "modo visuais", "componha com o explicativo em <path>"). A própria skill decide o modo (1 compor / 2 gerar o explicativo a partir do avatar / 3 gerar visuais) a partir do que foi dado — NÃO decida isso por conta própria, NÃO chame video-explicativo diretamente: é a skill reel-edita-inema quem orquestra tudo isso (inclusive o corte, o revisor e a composição).',
     'Rode de forma AUTÔNOMA, sem pedir confirmação nem qualquer interação — siga o `control.autonomia = decide-e-mostra` da própria skill.',
-    'A skill grava o resultado final em `~/projetos/output/<slug-do-reel>/` (a convenção de saída dela — NÃO force outro diretório).',
+    'A skill grava o resultado final em `~/projetos/output/reels/<slug-do-reel>/` (a convenção de saída dela — NÃO force outro diretório).',
   ];
   if (outPath) {
     return [
