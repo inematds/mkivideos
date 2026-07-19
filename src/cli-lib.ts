@@ -152,7 +152,7 @@ export async function waitForFile(
 export function makeDefaultDeps(): QueueDeps {
   return {
     runAgent: async (prompt) => {
-      const { stdout } = await run('claude', ['-p', prompt], { maxBuffer: 100 * 1024 * 1024 });
+      const { stdout } = await run('claude', ['--model', 'opus', '--effort', 'low', '-p', prompt], { maxBuffer: 100 * 1024 * 1024 });
       return { text: stdout };
     },
     sendMessage: async (_chatId, text) => { console.log(text); },

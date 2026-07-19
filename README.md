@@ -177,14 +177,28 @@ mkivideos get <id>           # só o caminho do .mp4 (vazio se não pronto)
 mkivideos cancelar <id>
 
 # rodar o daemon (worker background+poll + dashboard)
-mkivideos run --port 3142 --token segredo --concurrency 1 --render-dir renders
+mkivideos run --port 3142 --token segredo --concurrency 1 --render-dir /caminho/absoluto/renders
 #   → http://localhost:3142/videos?token=segredo  (fila + estatísticas + máquina)
 
 # env: MKIVIDEOS_DB (banco) · MKIVIDEOS_CONCURRENCY · MKIVIDEOS_RENDER_DIR
-MKIVIDEOS_DB=/data/fila.db MKIVIDEOS_CONCURRENCY=2 mkivideos run --port 3142
+MKIVIDEOS_DB=/data/fila.db MKIVIDEOS_CONCURRENCY=2 MKIVIDEOS_RENDER_DIR=/data/renders mkivideos run --port 3142
 ```
 
 > Em produção use o **systemd user unit** em [`deploy/`](deploy/README.md) (`mkivideos.service`).
+
+> ⚠️ **`--render-dir`/`MKIVIDEOS_RENDER_DIR` PRECISA ser caminho absoluto em produção.**
+> O default (`'renders'`, relativo — `src/cli.ts`/`src/queue.ts`) funciona bem quando é o
+> próprio worker que resolve o caminho (seu cwd é sempre a raiz do pacote), mas o
+> `result_path` é gravado **como veio** no banco — se outro processo (ex.: o watcher de um
+> bot integrador, que roda com outro cwd) tentar abrir esse caminho relativo, dá `ENOENT`
+> mesmo com o arquivo existindo de verdade em disco. **Incidente real (2026-07-19,
+> inematds/mkivideos + inematds/inemaccvbot)**: o worker foi reiniciado via `nohup node
+> dist/cli.js run ...` direto (pra aplicar uma mudança de código), pulando os `Environment=`
+> do unit systemd — inclusive `MKIVIDEOS_RENDER_DIR`. 5 jobs (#120–124) gravaram
+> `result_path` relativo e falharam na cópia pro destino (`yt-pub-livesN`) feita pelo
+> `inemaccvbot`, mesmo com os `.mp4` intactos em `renders/`. **Lição: nunca suba o worker
+> com `nohup`/`node dist/cli.js` direto em produção — sempre `systemctl --user
+> restart mkivideos.service` (ou o unit equivalente), mesmo só pra pegar um build novo.**
 
 Pré-requisitos na máquina: `claude` CLI **logado**, as 3 skills de vídeo em `~/.claude/skills/`,
 e a stack de render (HyperFrames/FFmpeg/Chrome/TTS/GPU). Sem bin (via lib), monte os deps
