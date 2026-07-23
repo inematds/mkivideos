@@ -95,6 +95,22 @@ export function cmdGet(store: QueueStore, id: number): string {
   return j?.result_path ?? '';
 }
 
+/** `mkivideos refazer <id>` → clona o payload de um job TERMINAL (falho/pronto/cancelado) num
+ * NOVO job queued (mesmo skill/input/opts/curso/módulo/kind/chat), devolvendo o novo id. Nunca
+ * revive o antigo (fica no histórico); só reprocessa quem já terminou (queued/running seguem). */
+export function cmdRefazer(store: QueueStore, id: number): string {
+  if (!Number.isInteger(id)) return 'erro: id inválido';
+  const j = store.list(100000).find((x) => x.id === id);
+  if (!j) return `#${id} não existe`;
+  if (j.status === 'queued' || j.status === 'running') return `não refiz #${id} (ainda ${j.status})`;
+  const newId = store.enqueue({
+    skill: j.skill, input: j.input, opts: j.opts,
+    notify: j.notify, sendVideo: Boolean(j.send_video), chatId: j.chat_id,
+    course: j.course, module: j.module, kind: j.kind, parentId: j.parent_id,
+  });
+  return `enfileirado #${newId} (${j.skill}) — refez #${id}`;
+}
+
 /** Pega o valor de uma flag `--nome valor` num array de tokens. */
 export function optVal(tokens: string[], name: string): string | undefined {
   const i = tokens.indexOf(name);

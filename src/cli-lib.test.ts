@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { cmdAdd, cmdFila, cmdCancel, optVal, usage, makeDefaultDeps, waitForFile } from './cli-lib.js';
+import { cmdAdd, cmdFila, cmdCancel, cmdRefazer, optVal, usage, makeDefaultDeps, waitForFile } from './cli-lib.js';
 import { SqliteQueueStore } from './sqlite-store.js';
 
 describe('cli-lib', () => {
@@ -36,6 +36,34 @@ describe('cli-lib', () => {
     it('enqueues reel com o caminho do avatar como input', () => {
       expect(cmdAdd(store, 'reel /home/nei/avatares/joao.mp4')).toMatch(/enfileirado #1 \(reel\)/);
       expect(store.getNext()?.input).toBe('/home/nei/avatares/joao.mp4');
+    });
+  });
+
+  describe('cmdRefazer', () => {
+    it('clona um job falho num novo job queued, preservando skill/input/opts', () => {
+      cmdAdd(store, 'reel /p/avatar.mp4 --vertical --pasta /lives27');
+      store.markRunning(1);
+      store.markFailed(1, 'agente não disparou o render (sem RENDER:)');
+      const msg = cmdRefazer(store, 1);
+      expect(msg).toMatch(/enfileirado #2 \(reel\) — refez #1/);
+      const novo = store.getNext()!;
+      expect(novo.id).toBe(2);
+      expect(novo.skill).toBe('reel');
+      expect(novo.input).toBe('/p/avatar.mp4');
+      expect(JSON.parse(novo.opts!)).toEqual({ vertical: true, dest: '/lives27' });
+      expect(novo.status).toBe('queued');
+    });
+
+    it('não refaz um job que ainda está na fila ou rodando', () => {
+      cmdAdd(store, 'explicativo X');
+      expect(cmdRefazer(store, 1)).toMatch(/ainda queued/);
+      store.markRunning(1);
+      expect(cmdRefazer(store, 1)).toMatch(/ainda running/);
+      expect(store.list()).toHaveLength(1);
+    });
+
+    it('avisa quando o id não existe', () => {
+      expect(cmdRefazer(store, 99)).toBe('#99 não existe');
     });
   });
 

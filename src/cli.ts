@@ -7,7 +7,7 @@ import path from 'node:path';
 import { initVideoQueue } from './queue.js';
 import { SqliteQueueStore } from './sqlite-store.js';
 import { createDashboardServer } from './dashboard.js';
-import { cmdAdd, cmdPlan, cmdFila, cmdCancel, cmdStats, cmdStatus, cmdGet, optVal, makeDefaultDeps, usage } from './cli-lib.js';
+import { cmdAdd, cmdPlan, cmdFila, cmdCancel, cmdStats, cmdStatus, cmdGet, cmdRefazer, optVal, makeDefaultDeps, usage } from './cli-lib.js';
 
 const DB = process.env.MKIVIDEOS_DB || path.resolve('mkivideos.db');
 
@@ -43,6 +43,11 @@ function main(): void {
 
     case 'get':
       console.log(cmdGet(store, Number(rest[0])));
+      break;
+
+    case 'refazer':
+    case 'redo':
+      console.log(cmdRefazer(store, Number(rest[0])));
       break;
 
     case 'run': {
