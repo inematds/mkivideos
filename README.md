@@ -27,8 +27,52 @@
 
 ---
 
+## O que ele faz (os 4 verbos)
+
+O mkivideos é **só um orquestrador de fila**. Ele **não gera vídeo, não renderiza e não
+conhece skill nenhuma** além do nome que costura no prompt — zero IA no host ("o host não
+tem janela de contexto, é só código: fila + tick"). Toda a inteligência mora nas skills
+executadas por um `claude -p` isolado por job. A função do serviço se resume a 4 verbos:
+
+### 1. Enfileirar
+Registra o job na tabela `video_jobs` do SQLite (fonte da verdade). Grava tudo que define
+**o quê** e **pra quem**: `kind` (explicativo/curso/demo/transcrever/dublar/reel/reelinematds),
+`input` (assunto ou link), destino (`dest`/`--pasta`), `chat_id`, e as flags `notify` e
+`send_video` (`--enviar`). O host só **submete** — determinístico, sem IA. Entra como `queued`.
+Comandos: `mkivideos add …`, e o `mkivideos plan <url>` que quebra um curso em N jobs.
+
+### 2. Escalonar
+Um **tick a cada 15s** varre a fila e reivindica o próximo `queued`, respeitando a
+**concorrência** (FIFO, default 1 — só pega um novo se nenhum estiver `running`). É o que
+**serializa o disparo** e evita saturar a CPU com dois renders simultâneos. Cada job vira
+um processo isolado; um não vaza no contexto do outro.
+
+### 3. Disparar
+Monta o **prompt** pelo *builder* correspondente ao `kind` (`buildVideoPrompt` /
+`buildInemavoxPrompt` / `buildReelPrompt` / `buildReelInematdsPrompt`), embutindo no texto o
+nome da skill-destino (ex.: `` Use a skill `video-explicativo`… ``). Spawna
+`claude -p` (`runAgent`) — uma sessão Claude autônoma, de contexto próprio e descartável, que
+roda a skill ponta-a-ponta. Como render de curso leva 1–2h e uma sessão não segura isso, o
+agente faz o **setup**, **dispara o render em background destacado** (emite `RENDER:`) e sai;
+o worker então **vigia o arquivo** (`waitForFile`) até o `.mp4` ficar pronto, o marcador
+`.err` aparecer, ou estourar o timeout (2h).
+
+### 4. Entregar / registrar
+Ao ver o `RESULT:`/arquivo pronto, fecha o job por até 4 canais:
+- **Banco** — `markDone(id, result_path)` (ou `markFailed(id, motivo)`). Canal canônico: quem
+  enfileirou **puxa** o resultado por polling (`mkivideos get/status/stats`, dashboard `/videos`).
+- **Mover** — se `--pasta`, `moveVideo` leva o artefato pra pasta/arquivo que o solicitante vigia.
+- **Notificar** — se `notify=sempre` + `chat_id`, `sendMessage` avisa no Telegram (console no standalone).
+- **Anexar** — se `--enviar` + `chat_id`, `sendDocument` manda o próprio `.mp4`/`.txt`/`.srt`.
+
+> Em resumo: **fila persistente + agendador + spawn de agente + entrega do resultado.** Um
+> "queue/cron manager" especializado em despachar jobs de vídeo para sessões Claude isoladas.
+
+---
+
 ## Índice
 
+- [O que ele faz (os 4 verbos)](#o-que-ele-faz-os-4-verbos)
 - [Como funciona (visão geral)](#como-funciona-visão-geral)
 - [Arquitetura: ports & adapters](#arquitetura-ports--adapters)
 - [Instalação](#instalação)
