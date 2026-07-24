@@ -27,6 +27,32 @@
 
 ---
 
+## Skill, agente ou worker?
+
+**É um worker (serviço/daemon) — não é skill nem agente.** No sentido de IA, o mkivideos fica
+*fora* da camada inteligente: é código determinístico (Node/TypeScript) rodando como daemon
+systemd.
+
+| Categoria | É? | Por quê |
+|---|---|---|
+| **Skill** | ❌ | Não é um pacote de instruções em `~/.claude/skills/`. Ele *nomeia* skills no prompt, mas não é uma. |
+| **Agente** | ❌ | Não tem raciocínio, contexto nem LLM. "O host não tem janela de contexto, é só código." |
+| **Worker / serviço** | ✅ | Daemon systemd (`mkivideos.service`): fila SQLite + loop de tick + spawn de processo. Puro código. |
+
+Ele **invoca** agentes (cada job dispara um `claude -p`, uma sessão-agente isolada), que por
+sua vez **executam** uma skill. A hierarquia:
+
+```
+mkivideos            ← WORKER (daemon, código, sem IA)
+   └─ claude -p      ← AGENTE (sessão Claude isolada, com contexto próprio)
+         └─ skill    ← SKILL (video-explicativo, reel-edita-inema…) que o agente executa
+```
+
+Ou seja: **um worker que despacha agentes, que por sua vez rodam skills.** É a camada de
+infra/orquestração, não a de inteligência.
+
+---
+
 ## O que ele faz (os 4 verbos)
 
 O mkivideos é **só um orquestrador de fila**. Ele **não gera vídeo, não renderiza e não
@@ -72,6 +98,7 @@ Ao ver o `RESULT:`/arquivo pronto, fecha o job por até 4 canais:
 
 ## Índice
 
+- [Skill, agente ou worker?](#skill-agente-ou-worker)
 - [O que ele faz (os 4 verbos)](#o-que-ele-faz-os-4-verbos)
 - [Como funciona (visão geral)](#como-funciona-visão-geral)
 - [Arquitetura: ports & adapters](#arquitetura-ports--adapters)
