@@ -1,13 +1,14 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
 <title>mkivideos — Fila de Vídeos com IA | INEMA.CLUB</title>
-<meta name="description" content="Motor portável de fila de vídeos: você joga o trabalho, o sistema gera um por vez. Comandado por Telegram, visível num painel, host-agnóstico." />
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<meta content="Motor portável de fila de vídeos: você joga o trabalho, o sistema gera um por vez. Comandado por Telegram, visível num painel, host-agnóstico." name="description"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
 <style>
   :root{
     --bg:#0D1321; --bg2:#1D2D44; --bg3:#3E5C76; --fg:#F0EBD8; --mut:#748CAB;
@@ -111,148 +112,140 @@
   footer p{color:var(--mut);margin-top:12px;font-size:15px}
   footer .links{margin-top:18px;display:flex;gap:22px;justify-content:center;font-weight:600}
 </style>
-</head>
-<body>
-
+<link href="https://inematds.github.io/mkivideos/docs/" hreflang="pt-BR" rel="alternate"/><link href="https://inematds.github.io/mkivideos/en/docs/" hreflang="en" rel="alternate"/><link href="https://inematds.github.io/mkivideos/es/docs/" hreflang="es" rel="alternate"/></head>
+<body><div class="inema-lang" style="position:fixed;right:14px;bottom:14px;z-index:9999;display:flex;gap:2px;padding:4px;border-radius:10px;background:rgba(12,12,16,.82);border:1px solid rgba(226,162,59,.45);font:600 12px/1 Sora,Inter,system-ui,sans-serif;backdrop-filter:blur(8px)" translate="no"><a href="./" hreflang="pt-BR" style="padding:6px 8px;border-radius:7px;text-decoration:none;color:#1a1206;background:#E2A23B">PT</a><a href="../en/docs/" hreflang="en" style="padding:6px 8px;border-radius:7px;text-decoration:none;color:#e9e9ee">EN</a><a href="../es/docs/" hreflang="es" style="padding:6px 8px;border-radius:7px;text-decoration:none;color:#e9e9ee">ES</a></div>
 <nav><div class="wrap">
-  <div class="brand"><span class="dot"></span>mkivideos</div>
-  <div class="nav-links">
-    <a href="#como">Como funciona</a>
-    <a href="#recursos">Recursos</a>
-    <a href="#cursos">Cursos</a>
-    <a class="btn" href="https://github.com/inematds/mkivideos">GitHub ↗</a>
-  </div>
+<div class="brand"><span class="dot"></span>mkivideos</div>
+<div class="nav-links">
+<a href="#como">Como funciona</a>
+<a href="#recursos">Recursos</a>
+<a href="#cursos">Cursos</a>
+<a class="btn" href="https://github.com/inematds/mkivideos">GitHub ↗</a>
+</div>
 </div></nav>
-
 <header class="hero"><div class="wrap">
-  <div class="eyebrow"><span class="dot"></span>INEMA.CLUB · FERRAMENTA DE VÍDEO</div>
-  <h1>Fila de Vídeos<br/><span class="acc">com IA</span></h1>
-  <p class="lead">Você <b>joga o trabalho</b>, o sistema gera <b>um vídeo por vez</b>. Comandado por
+<div class="eyebrow"><span class="dot"></span>INEMA.CLUB · FERRAMENTA DE VÍDEO</div>
+<h1>Fila de Vídeos<br/><span class="acc">com IA</span></h1>
+<p class="lead">Você <b>joga o trabalho</b>, o sistema gera <b>um vídeo por vez</b>. Comandado por
     Telegram, visível num painel, e <b>host-agnóstico</b> — roda em qualquer bot ou standalone.
     Concorrência controlada pra <b>não sobrecarregar a máquina</b>.</p>
-  <div class="hero-cta">
-    <a class="btn primary" href="https://github.com/inematds/mkivideos">Ver no GitHub ↗</a>
-    <a class="btn" href="#como">Como funciona ↓</a>
-  </div>
-  <div class="pills">
-    <span class="pill">Telegram <b>/mkivideos</b></span>
-    <span class="pill">Concorrência <b>= 1</b> · FIFO</span>
-    <span class="pill">Painel <b>:3141</b></span>
-    <span class="pill">CLI <b>standalone</b></span>
-    <span class="pill">ports &amp; adapters</span>
-  </div>
+<div class="hero-cta">
+<a class="btn primary" href="https://github.com/inematds/mkivideos">Ver no GitHub ↗</a>
+<a class="btn" href="#como">Como funciona ↓</a>
+</div>
+<div class="pills">
+<span class="pill">Telegram <b>/mkivideos</b></span>
+<span class="pill">Concorrência <b>= 1</b> · FIFO</span>
+<span class="pill">Painel <b>:3141</b></span>
+<span class="pill">CLI <b>standalone</b></span>
+<span class="pill">ports &amp; adapters</span>
+</div>
 </div></header>
-
 <section id="como"><div class="wrap">
-  <div class="sec-head">
-    <div class="kick">O fluxo</div>
-    <h2>Joga → enfileira → gera</h2>
-    <p>Cada pedido vira um job. O worker pega um de cada vez e spawna uma sessão de agente
+<div class="sec-head">
+<div class="kick">O fluxo</div>
+<h2>Joga → enfileira → gera</h2>
+<p>Cada pedido vira um job. O worker pega um de cada vez e spawna uma sessão de agente
        autônoma que produz o vídeo de ponta a ponta.</p>
-  </div>
-  <div class="flow">
-    <div class="step"><div class="ico">💬</div><div class="n">01</div><h3>Você joga</h3><p>Pelo Telegram (<span class="mono">/mkivideos</span>) ou direto. Vira um job na fila.</p><span class="arrow">→</span></div>
-    <div class="step"><div class="ico">📋</div><div class="n">02</div><h3>Fila</h3><p>Persistente (SQLite). FIFO, <b>1 por vez</b> — não sobrecarrega.</p><span class="arrow">→</span></div>
-    <div class="step"><div class="ico">🤖</div><div class="n">03</div><h3>Worker</h3><p>Spawna uma sessão Claude autônoma que roda a skill e renderiza.</p><span class="arrow">→</span></div>
-    <div class="step"><div class="ico">🎬</div><div class="n">04</div><h3>Vídeo</h3><p>Notifica no Telegram + aparece no painel. Joga mais quando quiser.</p></div>
-  </div>
+</div>
+<div class="flow">
+<div class="step"><div class="ico">💬</div><div class="n">01</div><h3>Você joga</h3><p>Pelo Telegram (<span class="mono">/mkivideos</span>) ou direto. Vira um job na fila.</p><span class="arrow">→</span></div>
+<div class="step"><div class="ico">📋</div><div class="n">02</div><h3>Fila</h3><p>Persistente (SQLite). FIFO, <b>1 por vez</b> — não sobrecarrega.</p><span class="arrow">→</span></div>
+<div class="step"><div class="ico">🤖</div><div class="n">03</div><h3>Worker</h3><p>Spawna uma sessão Claude autônoma que roda a skill e renderiza.</p><span class="arrow">→</span></div>
+<div class="step"><div class="ico">🎬</div><div class="n">04</div><h3>Vídeo</h3><p>Notifica no Telegram + aparece no painel. Joga mais quando quiser.</p></div>
+</div>
 </div></section>
-
 <section id="recursos" style="background:rgba(29,45,68,.25);border-block:1px solid rgba(62,92,118,.35)"><div class="wrap">
-  <div class="sec-head">
-    <div class="kick">Por que existe</div>
-    <h2>Um motor, não um silo</h2>
-  </div>
-  <div class="grid">
-    <div class="card"><div class="ico">⚖️</div><h3>1 por vez, de propósito</h3><p>Render de vídeo satura CPU. A fila <b>serializa</b> (concorrência = 1, FIFO) e gerencia o fluxo — você joga à vontade.</p></div>
-    <div class="card"><div class="ico">🔌</div><h3>Host-agnóstico</h3><p><b>Ports &amp; adapters:</b> o núcleo não sabe qual bot/DB existe. Roda em openpcbot, openclaw, hermes… ou standalone.</p></div>
-    <div class="card"><div class="ico">📡</div><h3>Telegram + painel + CLI</h3><p>Comanda por <span class="mono">/mkivideos</span>, acompanha no dashboard <span class="mono">:3141</span>, ou roda <span class="mono">mkivideos run</span> sem bot.</p></div>
-    <div class="card"><div class="ico">🧩</div><h3>Cobre o ecossistema</h3><p>explicativo · demonstrativo · cursos INEMA — e um catálogo maior de skills, motores e geradores IA.</p></div>
-    <div class="card"><div class="ico">🛟</div><h3>Não trava</h3><p>Job que falha vira <span class="mono">failed</span> e a fila segue. Jobs órfãos de restart são recuperados no boot.</p></div>
-    <div class="card"><div class="ico">⚡</div><h3>Render na GPU</h3><p>HyperFrames com <span class="mono">--gpu --browser-gpu</span> (NVENC) e fallback automático pro CPU.</p></div>
-  </div>
+<div class="sec-head">
+<div class="kick">Por que existe</div>
+<h2>Um motor, não um silo</h2>
+</div>
+<div class="grid">
+<div class="card"><div class="ico">⚖️</div><h3>1 por vez, de propósito</h3><p>Render de vídeo satura CPU. A fila <b>serializa</b> (concorrência = 1, FIFO) e gerencia o fluxo — você joga à vontade.</p></div>
+<div class="card"><div class="ico">🔌</div><h3>Host-agnóstico</h3><p><b>Ports &amp; adapters:</b> o núcleo não sabe qual bot/DB existe. Roda em openpcbot, openclaw, hermes… ou standalone.</p></div>
+<div class="card"><div class="ico">📡</div><h3>Telegram + painel + CLI</h3><p>Comanda por <span class="mono">/mkivideos</span>, acompanha no dashboard <span class="mono">:3141</span>, ou roda <span class="mono">mkivideos run</span> sem bot.</p></div>
+<div class="card"><div class="ico">🧩</div><h3>Cobre o ecossistema</h3><p>explicativo · demonstrativo · cursos INEMA — e um catálogo maior de skills, motores e geradores IA.</p></div>
+<div class="card"><div class="ico">🛟</div><h3>Não trava</h3><p>Job que falha vira <span class="mono">failed</span> e a fila segue. Jobs órfãos de restart são recuperados no boot.</p></div>
+<div class="card"><div class="ico">⚡</div><h3>Render na GPU</h3><p>HyperFrames com <span class="mono">--gpu --browser-gpu</span> (NVENC) e fallback automático pro CPU.</p></div>
+</div>
 </div></section>
-
 <section id="cursos"><div class="wrap">
-  <div class="sec-head">
-    <div class="kick">Em geração</div>
-    <h2>Mapa dos cursos</h2>
-    <p>Cursos INEMA sendo transformados em vídeo (1 vídeo profundo por módulo). Status da fila.</p>
-  </div>
-  <div class="courses">
-    <div class="course">
-      <div class="top"><h3>🧠 Agent Skills Mastery</h3><span class="meta">48 módulos</span></div>
-      <div class="desc">skills · 6 trilhas × 8 módulos</div>
-      <div class="bar"><i class="done" style="width:0%"></i><i class="run" style="width:0%"></i><i class="fail" style="width:0%"></i></div>
-      <div class="legend"><span>0/48 feito</span></div>
-    </div>
-    <div class="course">
-      <div class="top"><h3>🛠️ Criando Agent Skills</h3><span class="meta">25 módulos</span></div>
-      <div class="desc">skills-craft · 5 trilhas × 5 módulos</div>
-      <div class="bar"><i class="done" style="width:0%"></i></div>
-      <div class="legend"><span>0/25 feito</span></div>
-    </div>
-    <div class="course">
-      <div class="top"><h3>🎨 Skill Design</h3><span class="meta">16 módulos</span></div>
-      <div class="desc">skill-design · 4 trilhas × 4 módulos</div>
-      <div class="bar"><i class="done" style="width:6.25%"></i></div>
-      <div class="legend"><span>1/16 feito</span></div>
-    </div>
-    <div class="course">
-      <div class="top"><h3>🚀 Imersão Vibe Coding</h3><span class="meta">6 módulos</span></div>
-      <div class="desc">vb-imersao · do zero ao SaaS com IA</div>
-      <div class="bar"><i class="run" style="width:16.6%"></i><i class="fail" style="width:33.2%"></i></div>
-      <div class="legend">
-        <span><span class="sw" style="background:var(--acc)"></span>1 rodando</span>
-        <span><span class="sw" style="background:var(--red)"></span>2 falhas</span>
-        <span>3 na fila</span>
-      </div>
-    </div>
-    <div class="course">
-      <div class="top"><h3>⚙️ Agentic Workflow</h3><span class="meta">1 (curso inteiro)</span></div>
-      <div class="desc">agentic-workflow · job único</div>
-      <div class="bar"><i class="done" style="width:100%"></i></div>
-      <div class="legend"><span>✅ 1/1 feito</span></div>
-    </div>
-  </div>
-  <div class="legend" style="justify-content:center;margin-top:22px">
-    <span><span class="sw" style="background:var(--code)"></span>feito</span>
-    <span><span class="sw" style="background:var(--acc)"></span>rodando</span>
-    <span><span class="sw" style="background:var(--red)"></span>falha</span>
-    <span><span class="sw" style="background:var(--bg3)"></span>na fila</span>
-  </div>
-  <p class="courses-note">Snapshot da fila — 2026-06-08 · total 96 jobs (5 cursos)</p>
+<div class="sec-head">
+<div class="kick">Em geração</div>
+<h2>Mapa dos cursos</h2>
+<p>Cursos INEMA sendo transformados em vídeo (1 vídeo profundo por módulo). Status da fila.</p>
+</div>
+<div class="courses">
+<div class="course">
+<div class="top"><h3>🧠 Agent Skills Mastery</h3><span class="meta">48 módulos</span></div>
+<div class="desc">skills · 6 trilhas × 8 módulos</div>
+<div class="bar"><i class="done" style="width:0%"></i><i class="run" style="width:0%"></i><i class="fail" style="width:0%"></i></div>
+<div class="legend"><span>0/48 feito</span></div>
+</div>
+<div class="course">
+<div class="top"><h3>🛠️ Criando Agent Skills</h3><span class="meta">25 módulos</span></div>
+<div class="desc">skills-craft · 5 trilhas × 5 módulos</div>
+<div class="bar"><i class="done" style="width:0%"></i></div>
+<div class="legend"><span>0/25 feito</span></div>
+</div>
+<div class="course">
+<div class="top"><h3>🎨 Skill Design</h3><span class="meta">16 módulos</span></div>
+<div class="desc">skill-design · 4 trilhas × 4 módulos</div>
+<div class="bar"><i class="done" style="width:6.25%"></i></div>
+<div class="legend"><span>1/16 feito</span></div>
+</div>
+<div class="course">
+<div class="top"><h3>🚀 Imersão Vibe Coding</h3><span class="meta">6 módulos</span></div>
+<div class="desc">vb-imersao · do zero ao SaaS com IA</div>
+<div class="bar"><i class="run" style="width:16.6%"></i><i class="fail" style="width:33.2%"></i></div>
+<div class="legend">
+<span><span class="sw" style="background:var(--acc)"></span>1 rodando</span>
+<span><span class="sw" style="background:var(--red)"></span>2 falhas</span>
+<span>3 na fila</span>
+</div>
+</div>
+<div class="course">
+<div class="top"><h3>⚙️ Agentic Workflow</h3><span class="meta">1 (curso inteiro)</span></div>
+<div class="desc">agentic-workflow · job único</div>
+<div class="bar"><i class="done" style="width:100%"></i></div>
+<div class="legend"><span>✅ 1/1 feito</span></div>
+</div>
+</div>
+<div class="legend" style="justify-content:center;margin-top:22px">
+<span><span class="sw" style="background:var(--code)"></span>feito</span>
+<span><span class="sw" style="background:var(--acc)"></span>rodando</span>
+<span><span class="sw" style="background:var(--red)"></span>falha</span>
+<span><span class="sw" style="background:var(--bg3)"></span>na fila</span>
+</div>
+<p class="courses-note">Snapshot da fila — 2026-06-08 · total 96 jobs (5 cursos)</p>
 </div></section>
-
 <section style="background:rgba(29,45,68,.25);border-block:1px solid rgba(62,92,118,.35)"><div class="wrap">
-  <div class="sec-head">
-    <div class="kick">3 caminhos</div>
-    <h2>Como comandar</h2>
-  </div>
-  <div class="chan">
-    <div class="c"><h3>💬 Telegram</h3><code>/mkivideos explicativo "Bayes"
+<div class="sec-head">
+<div class="kick">3 caminhos</div>
+<h2>Como comandar</h2>
+</div>
+<div class="chan">
+<div class="c"><h3>💬 Telegram</h3><code>/mkivideos explicativo "Bayes"
 /mkivideos curso &lt;link&gt;
 /mkivideos fila
 /mkivideos help</code></div>
-    <div class="c"><h3>📊 Painel</h3><code>http://localhost:3141/videos
+<div class="c"><h3>📊 Painel</h3><code>http://localhost:3141/videos
   ?token=…
 
 → status, progresso,
   cancelar jobs</code></div>
-    <div class="c"><h3>⌨️ Standalone (CLI)</h3><code>mkivideos add explicativo "X"
+<div class="c"><h3>⌨️ Standalone (CLI)</h3><code>mkivideos add explicativo "X"
 mkivideos fila
 mkivideos run --port 3141</code></div>
-  </div>
+</div>
 </div></section>
-
 <footer><div class="wrap">
-  <div class="brand2"><span class="b1">INEMA</span><span class="b2">.CLUB</span></div>
-  <p>mkivideos — motor portável de fila de vídeos · open source</p>
-  <div class="links">
-    <a href="https://github.com/inematds/mkivideos">GitHub ↗</a>
-    <a href="https://inema.club">inema.club ↗</a>
-  </div>
+<div class="brand2"><span class="b1">INEMA</span><span class="b2">.CLUB</span></div>
+<p>mkivideos — motor portável de fila de vídeos · open source</p>
+<div class="links">
+<a href="https://github.com/inematds/mkivideos">GitHub ↗</a>
+<a href="https://inema.club">inema.club ↗</a>
+</div>
 </div></footer>
-
 </body>
 </html>

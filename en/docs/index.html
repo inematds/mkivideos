@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>mkivideos — AI Video Queue | INEMA.CLUB</title>
+<meta content="Portable video queue engine: you submit the work, and the system generates one at a time. Controlled via Telegram, visible in a dashboard, host-agnostic." name="description"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --bg:#0D1321; --bg2:#1D2D44; --bg3:#3E5C76; --fg:#F0EBD8; --mut:#748CAB;
+    --acc:#FFC300; --acc2:#FCA311; --code:#2EC4B6; --red:#e07a7a; --green:#2EC4B6;
+    --maxw:1180px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.55;overflow-x:hidden}
+  .mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+  a{color:var(--acc);text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  h1,h2,h3{font-family:Sora,sans-serif;letter-spacing:-.02em;line-height:1.05}
+  .acc{color:var(--acc)} .acc2{color:var(--acc2)} .code{color:var(--code)} .mut{color:var(--mut)}
+
+  /* ambient bg */
+  body::before{content:"";position:fixed;inset:0;z-index:-2;background:
+    radial-gradient(1100px 700px at 12% -8%, rgba(255,195,0,.16), transparent 60%),
+    radial-gradient(1000px 700px at 92% 8%, rgba(46,196,182,.10), transparent 60%);pointer-events:none}
+  body::after{content:"";position:fixed;inset:0;z-index:-2;opacity:.5;pointer-events:none;
+    background-image:linear-gradient(rgba(116,140,171,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(116,140,171,.06) 1px,transparent 1px);
+    background-size:60px 60px}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:rgba(13,19,33,.72);border-bottom:1px solid rgba(62,92,118,.4)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{font-family:Sora;font-weight:800;font-size:20px;display:flex;align-items:center;gap:10px}
+  .brand .dot{width:11px;height:11px;border-radius:50%;background:var(--acc);box-shadow:0 0 14px var(--acc)}
+  .nav-links{display:flex;gap:26px;align-items:center;font-size:15px;font-weight:600}
+  .nav-links a{color:var(--mut)} .nav-links a:hover{color:var(--fg)}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:11px;font-weight:700;font-size:15px;border:2px solid var(--bg3);color:var(--fg);transition:.15s}
+  .btn.primary{background:linear-gradient(120deg,var(--acc),var(--acc2));color:#0D1321;border-color:transparent}
+  .btn:hover{transform:translateY(-1px)}
+  .btn.primary:hover{box-shadow:0 12px 30px rgba(255,195,0,.28)}
+
+  /* hero */
+  header.hero{padding:96px 0 70px;text-align:center}
+  .eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:"JetBrains Mono",monospace;font-size:14px;letter-spacing:.26em;color:var(--mut);text-transform:uppercase;margin-bottom:26px;border:1px solid var(--bg3);padding:9px 18px;border-radius:999px}
+  .eyebrow .dot{width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+  header.hero h1{font-size:clamp(44px,7vw,86px);font-weight:800}
+  header.hero h1 .big{font-size:1.1em}
+  .lead{font-size:clamp(18px,2.4vw,24px);color:var(--mut);max-width:760px;margin:26px auto 0}
+  .lead b{color:var(--fg)}
+  .hero-cta{display:flex;gap:14px;justify-content:center;margin-top:38px;flex-wrap:wrap}
+  .pills{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:40px}
+  .pill{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--mut);border:1px solid var(--bg3);border-radius:999px;padding:8px 16px;background:rgba(29,45,68,.4)}
+  .pill b{color:var(--acc)}
+
+  section{padding:64px 0}
+  .sec-head{text-align:center;margin-bottom:48px}
+  .sec-head .kick{font-family:"JetBrains Mono";font-size:13px;letter-spacing:.26em;color:var(--acc);text-transform:uppercase}
+  .sec-head h2{font-size:clamp(30px,4vw,46px);font-weight:800;margin-top:14px}
+  .sec-head p{color:var(--mut);max-width:680px;margin:16px auto 0;font-size:18px}
+
+  /* flow */
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:stretch}
+  .flow .step{background:linear-gradient(160deg,#22364f,var(--bg2));border:1px solid var(--bg3);border-radius:18px;padding:26px 22px;position:relative}
+  .flow .step .n{font-family:"JetBrains Mono";font-size:13px;color:var(--acc);font-weight:700}
+  .flow .step h3{font-size:21px;margin:12px 0 8px}
+  .flow .step p{color:var(--mut);font-size:15px}
+  .flow .step .ico{font-size:30px}
+  .flow .arrow{position:absolute;right:-12px;top:50%;transform:translateY(-50%);color:var(--acc);font-size:24px;z-index:2}
+  @media(max-width:860px){.flow{grid-template-columns:1fr 1fr}.flow .arrow{display:none}}
+
+  /* features */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .card{background:linear-gradient(160deg,#22364f,var(--bg2));border:1px solid var(--bg3);border-radius:18px;padding:30px;transition:.18s}
+  .card:hover{border-color:var(--acc);transform:translateY(-3px)}
+  .card .ico{font-size:34px}
+  .card h3{font-size:22px;margin:14px 0 10px}
+  .card p{color:var(--mut);font-size:15.5px}
+
+  /* course map */
+  .courses{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  @media(max-width:760px){.courses{grid-template-columns:1fr}}
+  .course{background:linear-gradient(160deg,#22364f,var(--bg2));border:1px solid var(--bg3);border-radius:18px;padding:24px 26px}
+  .course .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .course h3{font-size:21px} .course .meta{font-family:"JetBrains Mono";font-size:13px;color:var(--mut)}
+  .course .desc{color:var(--mut);font-size:14.5px;margin:8px 0 18px}
+  .bar{height:12px;border-radius:999px;background:var(--bg);border:1px solid var(--bg3);overflow:hidden;display:flex}
+  .bar i{height:100%;display:block}
+  .bar .done{background:linear-gradient(90deg,var(--code),var(--acc))}
+  .bar .run{background:repeating-linear-gradient(45deg,var(--acc),var(--acc) 6px,var(--acc2) 6px,var(--acc2) 12px)}
+  .bar .fail{background:var(--red)}
+  .legend{display:flex;gap:16px;margin-top:12px;font-family:"JetBrains Mono";font-size:12px;color:var(--mut);flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .courses-note{text-align:center;color:var(--mut);font-size:14px;margin-top:24px;font-family:"JetBrains Mono"}
+
+  /* channels */
+  .chan{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:860px){.chan{grid-template-columns:1fr}}
+  .chan .c{background:rgba(10,22,38,.6);border:1px solid var(--bg3);border-radius:16px;padding:26px}
+  .chan .c h3{font-size:19px;display:flex;align-items:center;gap:10px}
+  .chan .c code{display:block;margin-top:14px;background:#0a1626;border:1px solid var(--bg3);border-radius:10px;padding:14px 16px;font-family:"JetBrains Mono";font-size:13.5px;color:var(--code);overflow-x:auto;white-space:pre}
+
+  footer{border-top:1px solid var(--bg3);padding:48px 0;margin-top:40px;text-align:center}
+  footer .brand2{font-family:Sora;font-weight:800;font-size:30px}
+  footer .brand2 .b1{color:var(--fg)} footer .brand2 .b2{color:var(--acc)}
+  footer p{color:var(--mut);margin-top:12px;font-size:15px}
+  footer .links{margin-top:18px;display:flex;gap:22px;justify-content:center;font-weight:600}
+</style>
+<link href="https://inematds.github.io/mkivideos/docs/" hreflang="pt-BR" rel="alternate"/><link href="https://inematds.github.io/mkivideos/en/docs/" hreflang="en" rel="alternate"/><link href="https://inematds.github.io/mkivideos/es/docs/" hreflang="es" rel="alternate"/></head>
+<body><div class="inema-lang" style="position:fixed;right:14px;bottom:14px;z-index:9999;display:flex;gap:2px;padding:4px;border-radius:10px;background:rgba(12,12,16,.82);border:1px solid rgba(226,162,59,.45);font:600 12px/1 Sora,Inter,system-ui,sans-serif;backdrop-filter:blur(8px)" translate="no"><a href="../../docs/" hreflang="pt-BR" style="padding:6px 8px;border-radius:7px;text-decoration:none;color:#e9e9ee">PT</a><a href="./" hreflang="en" style="padding:6px 8px;border-radius:7px;text-decoration:none;color:#1a1206;background:#E2A23B">EN</a><a href="../../es/docs/" hreflang="es" style="padding:6px 8px;border-radius:7px;text-decoration:none;color:#e9e9ee">ES</a></div>
+<nav><div class="wrap">
+<div class="brand"><span class="dot"></span>mkivideos</div>
+<div class="nav-links">
+<a href="#como">How it works</a>
+<a href="#recursos">Features</a>
+<a href="#cursos">Courses</a>
+<a class="btn" href="https://github.com/inematds/mkivideos">GitHub ↗</a>
+</div>
+</div></nav>
+<header class="hero"><div class="wrap">
+<div class="eyebrow"><span class="dot"></span>INEMA.CLUB · VIDEO TOOL</div>
+<h1>Video Queue<br/><span class="acc">with AI</span></h1>
+<p class="lead">You <b>takes the work</b>, the system generates <b>one video at a time</b>. Controlled by
+    Telegram, visible on a dashboard, and <b>host-agnostic</b> — runs on any bot or standalone.
+    Concurrency controlled for <b>not overload the machine</b>.</p>
+<div class="hero-cta">
+<a class="btn primary" href="https://github.com/inematds/mkivideos">View on GitHub ↗</a>
+<a class="btn" href="#como">How it works ↓</a>
+</div>
+<div class="pills">
+<span class="pill">Telegram <b>/mkivideos</b></span>
+<span class="pill">Concurrency <b>= 1</b> · FIFO</span>
+<span class="pill">Dashboard <b>:3141</b></span>
+<span class="pill">CLI <b>standalone</b></span>
+<span class="pill">ports &amp; adapters</span>
+</div>
+</div></header>
+<section id="como"><div class="wrap">
+<div class="sec-head">
+<div class="kick">The workflow</div>
+<h2>Drop → queue → generate</h2>
+<p>Each request becomes a job. The worker picks up one at a time and spawns an autonomous agent
+       session that produces the video from start to finish.</p>
+</div>
+<div class="flow">
+<div class="step"><div class="ico">💬</div><div class="n">01</div><h3>You play</h3><p>Via Telegram (<span class="mono">/mkivideos</span>) or directly. It becomes a job in the queue.</p><span class="arrow">→</span></div>
+<div class="step"><div class="ico">📋</div><div class="n">02</div><h3>Queue</h3><p>Persistent (SQLite). FIFO, <b>1 at a time</b> — doesn't overload.</p><span class="arrow">→</span></div>
+<div class="step"><div class="ico">🤖</div><div class="n">03</div><h3>Worker</h3><p>Spawns an autonomous Claude session that runs the skill and renders.</p><span class="arrow">→</span></div>
+<div class="step"><div class="ico">🎬</div><div class="n">04</div><h3>Video</h3><p>Sends a notification on Telegram + appears in the dashboard. Queue more whenever you want.</p></div>
+</div>
+</div></section>
+<section id="recursos" style="background:rgba(29,45,68,.25);border-block:1px solid rgba(62,92,118,.35)"><div class="wrap">
+<div class="sec-head">
+<div class="kick">Why it exists</div>
+<h2>One engine, not a silo</h2>
+</div>
+<div class="grid">
+<div class="card"><div class="ico">⚖️</div><h3>1 at a time, by design</h3><p>Video rendering saturates the CPU. The queue <b>serializes</b> (concurrency = 1, FIFO) and manages the flow — you can play as much as you like.</p></div>
+<div class="card"><div class="ico">🔌</div><h3>Host-agnostic</h3><p><b>Ports &amp; adapters:</b> the core doesn’t know which bot/DB exists. It runs in openpcbot, openclaw, hermes… or standalone.</p></div>
+<div class="card"><div class="ico">📡</div><h3>Telegram + dashboard + CLI</h3><p>Control it with <span class="mono">/mkivideos</span>, track it on the dashboard <span class="mono">:3141</span>, or runs <span class="mono">mkivideos run</span> without a bot.</p></div>
+<div class="card"><div class="ico">🧩</div><h3>Covers the ecosystem</h3><p>explanatory · demonstrative · INEMA courses — and a larger catalog of skills, engines, and AI generators.</p></div>
+<div class="card"><div class="ico">🛟</div><h3>Doesn't block</h3><p>A job that fails becomes <span class="mono">failed</span> and the queue keeps moving. Orphaned jobs from a restart are recovered at boot.</p></div>
+<div class="card"><div class="ico">⚡</div><h3>GPU rendering</h3><p>with HyperFrames <span class="mono">--gpu --browser-gpu</span> (NVENC) with automatic CPU fallback.</p></div>
+</div>
+</div></section>
+<section id="cursos"><div class="wrap">
+<div class="sec-head">
+<div class="kick">Generating</div>
+<h2>Course Map</h2>
+<p>INEMA courses being turned into videos (1 in-depth video per module). Queue status.</p>
+</div>
+<div class="courses">
+<div class="course">
+<div class="top"><h3>🧠 Agent Skills Mastery</h3><span class="meta">48 modules</span></div>
+<div class="desc">skills · 6 tracks × 8 modules</div>
+<div class="bar"><i class="done" style="width:0%"></i><i class="run" style="width:0%"></i><i class="fail" style="width:0%"></i></div>
+<div class="legend"><span>0/48 done</span></div>
+</div>
+<div class="course">
+<div class="top"><h3>🛠️ Creating Agent Skills</h3><span class="meta">25 modules</span></div>
+<div class="desc">skills-craft · 5 tracks × 5 modules</div>
+<div class="bar"><i class="done" style="width:0%"></i></div>
+<div class="legend"><span>0/25 done</span></div>
+</div>
+<div class="course">
+<div class="top"><h3>🎨 Skill Design</h3><span class="meta">16 modules</span></div>
+<div class="desc">skill-design · 4 tracks × 4 modules</div>
+<div class="bar"><i class="done" style="width:6.25%"></i></div>
+<div class="legend"><span>1/16 done</span></div>
+</div>
+<div class="course">
+<div class="top"><h3>🚀 Vibe Coding Immersion</h3><span class="meta">6 modules</span></div>
+<div class="desc">vb-imersao · from zero to SaaS with AI</div>
+<div class="bar"><i class="run" style="width:16.6%"></i><i class="fail" style="width:33.2%"></i></div>
+<div class="legend">
+<span><span class="sw" style="background:var(--acc)"></span>1 running</span>
+<span><span class="sw" style="background:var(--red)"></span>2 failures</span>
+<span>3 in the queue</span>
+</div>
+</div>
+<div class="course">
+<div class="top"><h3>⚙️ Agentic Workflow</h3><span class="meta">1 (entire course)</span></div>
+<div class="desc">agentic-workflow · single job</div>
+<div class="bar"><i class="done" style="width:100%"></i></div>
+<div class="legend"><span>✅ 1/1 done</span></div>
+</div>
+</div>
+<div class="legend" style="justify-content:center;margin-top:22px">
+<span><span class="sw" style="background:var(--code)"></span>done</span>
+<span><span class="sw" style="background:var(--acc)"></span>running</span>
+<span><span class="sw" style="background:var(--red)"></span>failure</span>
+<span><span class="sw" style="background:var(--bg3)"></span>in the queue</span>
+</div>
+<p class="courses-note">Queue snapshot — 2026-06-08 · total 96 jobs (5 courses)</p>
+</div></section>
+<section style="background:rgba(29,45,68,.25);border-block:1px solid rgba(62,92,118,.35)"><div class="wrap">
+<div class="sec-head">
+<div class="kick">3 paths</div>
+<h2>How to control it</h2>
+</div>
+<div class="chan">
+<div class="c"><h3>💬 Telegram</h3><code>/mkivideos explicativo "Bayes"
+/mkivideos curso &lt;link&gt;
+/mkivideos fila
+/mkivideos help</code></div>
+<div class="c"><h3>📊 Dashboard</h3><code>http://localhost:3141/videos
+  ?token=…
+
+→ status, progresso,
+  cancelar jobs</code></div>
+<div class="c"><h3>⌨️ Standalone (CLI)</h3><code>mkivideos add explicativo "X"
+mkivideos fila
+mkivideos run --port 3141</code></div>
+</div>
+</div></section>
+<footer><div class="wrap">
+<div class="brand2"><span class="b1">INEMA</span><span class="b2">.CLUB</span></div>
+<p>mkivideos — portable video queue engine · open source</p>
+<div class="links">
+<a href="https://github.com/inematds/mkivideos">GitHub ↗</a>
+<a href="https://inema.club">inema.club ↗</a>
+</div>
+</div></footer>
+</body>
+</html>
